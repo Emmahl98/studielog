@@ -1,8 +1,11 @@
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=2';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=3';
+import {studyProgress,validGoal} from './progress.js?v=3';
 import {restoreSession,saveSession,clearSession} from './auth-session.js?v=2';
 const $=id=>document.getElementById(id);
 let token='', expiresAt=0, entries=[], filter='all', busy=false, loaded=false, pending=null, editingId=null;
+let goal=null,goalLoaded=false,goalSaving=false;
+const hoursFormatter=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 const storageKey='studielog.google-client-id';
 const readClientId=()=>{ try {return localStorage.getItem(storageKey)||config.clientId;} catch{return config.clientId;} };
 let clientId=readClientId();
@@ -17,6 +20,7 @@ $('today-label').textContent=new Intl.DateTimeFormat('nl-NL',{day:'numeric',mont
 $('origin').textContent=location.origin;
 function notify(message, error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);$('notice').hidden=!message;}
 function updateConnection(){
+  const locked=busy||goalSaving;
   const connected=!!token && Date.now()<expiresAt;
   if(token && !connected){token='';expiresAt=0;clearSession(sessionStorageAvailable);}
   $('connection-dot').classList.toggle('connected',connected);
@@ -24,18 +28,21 @@ function updateConnection(){
   $('connection-detail').textContent=connected?'Je items worden rechtstreeks in je privéspreadsheet opgeslagen.':'Verbind je Google-account om je items te bekijken en op te slaan.';
   $('connect').textContent=connected?'Opnieuw verbinden':'Verbinden met Google';
   $('disconnect').hidden=!connected;
-  $('save').disabled=!connected || busy || !loaded;
-  $('refresh').disabled=!connected || busy;
-  $('connect').disabled=busy;
-  $('disconnect').disabled=busy;
-  $('settings-button').disabled=busy;
-  $('cancel-edit').disabled=busy;
-  document.querySelectorAll('.edit-entry').forEach(button=>button.disabled=busy || !connected || button.dataset.editable!=='true');
-  $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=busy);
+  $('save').disabled=!connected || locked || !loaded;
+  $('refresh').disabled=!connected || locked;
+  $('connect').disabled=locked;
+  $('disconnect').disabled=locked;
+  $('settings-button').disabled=locked;
+  $('cancel-edit').disabled=locked;
+  document.querySelectorAll('.edit-entry').forEach(button=>button.disabled=locked || !connected || button.dataset.editable!=='true');
+  $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=locked);
+  $('goal-hours').disabled=!connected || busy || goalSaving;
+  $('save-goal').disabled=!connected || busy || goalSaving;
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
 function render(){
+  renderProgress();
   $('entries').replaceChildren();$('total-count').textContent=entries.length;
   const groups=groupEntries(entries,filter);
   if (!groups.size){
@@ -54,6 +61,31 @@ function render(){
     $('entries').append(section);
   }
 }
+function renderProgress(){
+  const progress=studyProgress(entries,goal);
+  $('hours-total').textContent=loaded?hoursFormatter.format(progress.hours):'—';
+  $('ring-value').setAttribute('stroke-dasharray',`${loaded?progress.ratio*100:0} 100`);
+  if(!loaded){$('goal-summary').textContent='Verbind met Google om je voortgang te zien.';$('goal-remaining').textContent='';$('hours-ring').setAttribute('aria-label','Verbind met Google om je gemaakte uren te zien.');return;}
+  if(progress.goal===null){$('goal-summary').textContent=goalLoaded?'Vul je urendoel in om je voortgang te bekijken.':'Je urendoel is nog niet geladen.';$('goal-remaining').textContent='';$('hours-ring').setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} uur gemaakt. Geen urendoel ingesteld.`);return;}
+  const percent=hoursFormatter.format(progress.percentage);
+  $('goal-summary').textContent=`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(progress.goal)} uur · ${percent}%`;
+  $('goal-remaining').textContent=progress.remaining>0?`Nog ${hoursFormatter.format(progress.remaining)} uur tot je doel.`:'Doel behaald.';
+  $('hours-ring').setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(progress.goal)} uur gemaakt, ${percent} procent.`);
+}
+async function refreshGoal(){
+  try{goal=await store.readGoal();goalLoaded=true;if(document.activeElement!==$('goal-hours'))$('goal-hours').value=goal??'';$('goal-feedback').textContent='Je doel wordt in Google Sheets bewaard.';$('goal-feedback').classList.remove('error');}
+  catch(error){goalLoaded=false;goal=null;$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
+  renderProgress();
+}
+$('goal-form').addEventListener('submit',async event=>{
+  event.preventDefault();if(busy||goalSaving)return;
+  const value=Number($('goal-hours').value);
+  if(!validGoal(value)){$('goal-feedback').textContent='Vul een urendoel groter dan 0 in.';$('goal-feedback').classList.add('error');return;}
+  goalSaving=true;updateConnection();$('save-goal').textContent='Opslaan…';
+  try{await store.saveGoal(value);goal=value;goalLoaded=true;renderProgress();$('goal-feedback').textContent='Urendoel opgeslagen in Google Sheets.';$('goal-feedback').classList.remove('error');}
+  catch(error){$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
+  finally{goalSaving=false;$('save-goal').textContent='Doel opslaan';updateConnection();}
+});
 function startEdit(item){
   if(busy)return;editingId=item.id;pending=null;
   $('date').value=item.date;$('subject').value=item.subject;$('minutes').value=item.minutes??'';
@@ -68,7 +100,7 @@ function finishEdit(clear=false){
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){
   busy=true;updateConnection();$('entries').setAttribute('aria-busy','true');
-  try{entries=await store.read();loaded=true;render();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
+  try{entries=await store.read();loaded=true;render();await refreshGoal();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
   catch(error){notify(error.message,true);}
   finally{busy=false;updateConnection();$('entries').setAttribute('aria-busy','false');}
 }
@@ -79,7 +111,7 @@ $('settings-form').addEventListener('submit',event=>{
   event.preventDefault();const next=$('client-id').value.trim();
   if(!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(next)){$('settings-error').textContent='Vul een geldige Google OAuth-client-ID in.';$('settings-error').hidden=false;return;}
   try{localStorage.setItem(storageKey,next);}catch{notify('Instelling geldt voor deze pagina. Je browser kon deze niet onthouden.');}
-  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;finishEdit(true);render();}
+  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';finishEdit(true);render();}
   clientId=next;$('settings').close();updateConnection();notify('Instelling opgeslagen. Klik op ‘Verbinden met Google’.');
 });
 $('connect').addEventListener('click',()=>{
@@ -90,13 +122,13 @@ $('connect').addEventListener('click',()=>{
     if(!google.accounts.oauth2.hasGrantedAllScopes(result,'https://www.googleapis.com/auth/spreadsheets')){notify('Geef toestemming voor Google Sheets om je studiedagboek te gebruiken.',true);return;}
     token=result.access_token;expiresAt=Date.now()+Number(result.expires_in)*1000-30000;
     saveSession(sessionStorageAvailable,{clientId,token,expiresAt});
-    entries=[];loaded=false;render();
+    entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';render();
     notify('Verbonden. Je studieoverzicht wordt geladen…');await refresh(false);
     if(loaded)notify('Verbonden. Je kunt nu studie-items opslaan.');
   },error_callback:()=>notify('Het Google-inlogvenster is gesloten of geblokkeerd. Sta pop-ups toe en probeer opnieuw.',true)});
   client.requestAccessToken({prompt:''});
 });
-$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;finishEdit(true);render();updateConnection();notify('Je bent uitgelogd. Je opgeslagen items blijven in Google Sheets.');});
+$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';finishEdit(true);render();updateConnection();notify('Je bent uitgelogd. Je opgeslagen items blijven in Google Sheets.');});
 $('refresh').addEventListener('click',()=>refresh());
 $('subject').addEventListener('input',()=>{$('char-count').textContent=`${$('subject').value.length} / 2000`;});
 document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();}));

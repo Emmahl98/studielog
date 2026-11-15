@@ -2,6 +2,8 @@
 
 Een eenvoudig Nederlands studiedagboek. Voeg meerdere items per dag toe, kies **sessie** of **les**, vul de minuten in en bekijk je geschiedenis per dag. Met **Bewerken** pas je later de datum, soort, beschrijving en minuten aan. Werkt op mobiel en desktop.
 
+Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar urendoel. De uren worden berekend uit de minuten van alle lessen en sessies, onafhankelijk van het gekozen filter. Het doel wordt bewaard in `Instellingen!B2` van dezelfde spreadsheet, met `Instelling` en `Waarde` als kolomkoppen en `Urendoel` in A2. Zonder ingesteld doel blijft de ring leeg. Bij het overschrijden van het doel blijft de ring volledig gevuld en toont de tekst het werkelijke percentage.
+
 ## Website
 
 https://emmahl98.github.io/studielog/

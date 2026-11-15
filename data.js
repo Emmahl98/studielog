@@ -49,6 +49,21 @@ export class SheetsStore {
     return response.json();
   }
   range(value) { return encodeURIComponent(`'${this.config.sheetName.replaceAll("'","''")}'!${value}`); }
+  async readGoal(){
+    const result=await this.request(`/values/${encodeURIComponent("'Instellingen'!A1:B2")}?valueRenderOption=UNFORMATTED_VALUE`);
+    const rows=result.values||[];
+    if(rows[0]?.[0]!=='Instelling' || rows[0]?.[1]!=='Waarde' || rows[1]?.[0]!=='Urendoel')throw new Error('De instellingen voor het urendoel zijn gewijzigd in Google Sheets.');
+    const value=rows[1]?.[1];
+    if(value===undefined || value===null || value==='')return null;
+    const goal=Number(value);
+    if(!Number.isFinite(goal)||goal<=0)throw new Error('Het urendoel in Google Sheets moet een getal groter dan 0 zijn.');
+    return goal;
+  }
+  async saveGoal(goal){
+    if(typeof goal!=='number'||!Number.isFinite(goal)||goal<=0)throw new Error('Vul een urendoel groter dan 0 in.');
+    await this.readGoal();
+    await this.request(`/values/${encodeURIComponent("'Instellingen'!B2")}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[[goal]]})});
+  }
   async read() {
     const result=await this.request(`/values/${this.range('A1:H')}?valueRenderOption=UNFORMATTED_VALUE`);
     const rows=result.values || [];

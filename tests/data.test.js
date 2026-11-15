@@ -20,7 +20,7 @@ test('append stores literal text and never overwrites earlier entries',async()=>
   assert.equal(calls.length,2);assert.match(calls[1].url,/:append\?valueInputOption=RAW/);
   assert.equal(JSON.parse(calls[1].options.body).values[0][2],'=1+1 <script>');
   assert.equal(calls[1].options.headers.Authorization,'Bearer test-token');
-  assert.deepEqual(JSON.parse(calls[1].options.body).values[0].slice(5),['',25,0.4]);
+  assert.deepEqual(JSON.parse(calls[1].options.body).values[0].slice(5),['',25,0.4,'']);
 });
 test('retry after an uncertain save does not append the same ID twice',async()=>{
   let writes=0;const entry={date:'2026-11-15',type:'les',subject:'Les 1',id:'saved-id',createdAt:'',minutes:50};
@@ -52,6 +52,13 @@ test('editing refuses missing and duplicate IDs and invalid durations',async()=>
   await assert.rejects(store.update({...entry,id:'missing'}),/niet meer gevonden/);
   await assert.rejects(store.add({...entry,minutes:-5}),/minuten/);
   assert.equal(writes,0);
+});
+test('materials from Notion stay intact unless explicitly changed',async()=>{
+ const calls=[],source=[HEADERS,['2026-11-15','les','Studie','id','created','Original',30,.5,'H6【とびら】 (https://app.notion.com/p/book)','Keep homework']];
+ const store=new SheetsStore({spreadsheetId:'test',sheetName:'Sheet1'},()=> 'token',async(url,options)=>{calls.push(options);return{ok:true,json:async()=>({values:source})};});
+ const [entry]=await store.read();assert.equal(entry.materials,'Tobira H6');
+ await store.update(entry);assert.equal(JSON.parse(calls.at(-1).body).data.length,2);
+ await store.update({...entry,materials:'Tobira H5, =Literal'});const updates=JSON.parse(calls.at(-1).body).data;assert.deepEqual(updates[2],{range:"'Sheet1'!I2:I2",values:[['Tobira H5, =Literal']]});assert.equal(source[1][9],'Keep homework');
 });
 test('expired tokens and unexpected schema stop writes',async()=>{
   const store=new SheetsStore({spreadsheetId:'test',sheetName:'Sheet1'},()=> '',()=>{throw Error('must not fetch');});

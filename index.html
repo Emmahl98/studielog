@@ -7,9 +7,9 @@
   <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
   <title>Studielog · Mijn studiedagboek</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css">
+  <link rel="stylesheet" href="./style.css?v=2">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=2"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -33,9 +33,11 @@
         <form id="entry-form">
           <label for="date">Datum</label><input type="date" id="date" name="date" required>
           <fieldset><legend>Soort</legend><div class="type-options"><label class="type-option"><input type="radio" name="type" value="sessie" checked><span>Sessie<small>Zelf gestudeerd</small></span></label><label class="type-option"><input type="radio" name="type" value="les"><span>Les<small>Les gevolgd</small></span></label></div></fieldset>
+          <label for="minutes">Minuten</label><input type="number" id="minutes" name="minutes" min="1" step="1" inputmode="numeric" placeholder="Bijvoorbeeld 30" required><p class="minutes-hint">Uren worden automatisch berekend.</p>
           <label for="subject">Wat heb je gestudeerd?</label><textarea id="subject" name="subject" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: hoofdstuk 3 herhaald en kanji geoefend" required></textarea>
           <div class="field-hint"><span>Groot of klein: het telt allemaal mee.</span><span id="char-count">0 / 2000</span></div>
           <button class="button primary" id="save" type="submit" disabled><span aria-hidden="true">＋</span> Item opslaan</button>
+          <button class="text-button cancel-edit" id="cancel-edit" type="button" hidden>Bewerken annuleren</button>
           <p class="save-hint" id="save-hint">Verbind eerst met Google om op te slaan.</p>
         </form>
       </section>

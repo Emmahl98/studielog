@@ -1,4 +1,13 @@
-export const HEADERS = ['Datum', 'Label', 'Onderwerp', 'ID', 'Aangemaakt'];
+export const HEADERS = ['Datum', 'Label', 'Onderwerp', 'ID', 'Aangemaakt', 'Naam', 'Minuten', 'Uren'];
+export function validMinutes(value) { return typeof value==='number' && Number.isSafeInteger(value) && value>0; }
+export function parseMinutes(value) {
+  if(value===undefined || value===null || String(value).trim()==='')return null;
+  const number=Number(value);
+  return Number.isFinite(number) && number>=0 ? number : null;
+}
+export function validateEntry(entry) {
+  if (!validDate(entry.date) || !['sessie','les'].includes(entry.type) || typeof entry.subject!=='string' || !entry.subject.trim() || entry.subject.length>2000 || !entry.id || !validMinutes(entry.minutes)) throw new Error('Vul een geldige datum, soort, beschrijving en een heel aantal minuten groter dan 0 in.');
+}
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
 }
@@ -8,7 +17,7 @@ export function validDate(value) {
   return !Number.isNaN(+date) && localDate(date) === value;
 }
 export function parseRows(rows) {
-  return rows.filter(row => validDate(row[0] || '') && ['sessie','les'].includes(row[1]) && typeof row[2] === 'string' && row[2].trim()).map(row => ({date:row[0],type:row[1],subject:row[2],id:row[3] || '',createdAt:row[4] || ''}));
+  return rows.map((row,index)=>({row,index})).filter(({row}) => validDate(row[0] || '') && ['sessie','les'].includes(row[1]) && typeof row[2] === 'string' && row[2].trim()).map(({row,index}) => ({date:row[0],type:row[1],subject:row[2],id:row[3] || '',createdAt:row[4] || '',minutes:parseMinutes(row[6]),rowNumber:index+2}));
 }
 export function groupEntries(entries, filter = 'all') {
   const groups = new Map();
@@ -41,17 +50,28 @@ export class SheetsStore {
   }
   range(value) { return encodeURIComponent(`'${this.config.sheetName.replaceAll("'","''")}'!${value}`); }
   async read() {
-    const result=await this.request(`/values/${this.range('A1:E')}`);
+    const result=await this.request(`/values/${this.range('A1:H')}?valueRenderOption=UNFORMATTED_VALUE`);
     const rows=result.values || [];
     if (rows.length===0) throw new Error('De spreadsheet is nog niet ingericht. Voeg eerst de kolommen Datum, Label, Onderwerp, ID en Aangemaakt toe.');
-    if (!HEADERS.every((header,index)=>rows[0][index]===header)) throw new Error('De kolommen in de spreadsheet zijn gewijzigd. Verwacht: Datum, Label, Onderwerp, ID en Aangemaakt.');
+    if (!HEADERS.every((header,index)=>rows[0][index]===header)) throw new Error('De kolommen in de spreadsheet zijn gewijzigd. Verwacht: '+HEADERS.join(', ')+'.');
     return parseRows(rows.slice(1));
   }
   async add(entry) {
-    if (!validDate(entry.date) || !['sessie','les'].includes(entry.type) || !entry.subject.trim() || entry.subject.length>2000 || !entry.id) throw new Error('Vul een geldige datum, soort en beschrijving in (maximaal 2000 tekens).');
+    validateEntry(entry);
     // Check the stable ID before retrying after an uncertain network response.
     const existing=await this.read();
     if (existing.some(item=>item.id===entry.id)) return;
-    await this.request(`/values/${this.range('A:E')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',body:JSON.stringify({values:[[entry.date,entry.type,entry.subject,entry.id,entry.createdAt]]})});
+    await this.request(`/values/${this.range('A:H')}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,{method:'POST',body:JSON.stringify({values:[[entry.date,entry.type,entry.subject,entry.id,entry.createdAt,'',entry.minutes,Math.round(entry.minutes/60*10)/10]]})});
+  }
+  async update(entry) {
+    validateEntry(entry);
+    // Resolve the stable ID again, so sorting the sheet cannot leave a stale row number.
+    const matches=(await this.read()).filter(item=>item.id===entry.id);
+    if(matches.length!==1)throw new Error(matches.length?'Dit item-ID komt dubbel voor. Pas dit eerst aan in Google Sheets.':'Dit item is niet meer gevonden. Vernieuw het overzicht.');
+    const row=matches[0].rowNumber;
+    await this.request('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[
+      {range:`'${this.config.sheetName.replaceAll("'","''")}'!A${row}:C${row}`,values:[[entry.date,entry.type,entry.subject]]},
+      {range:`'${this.config.sheetName.replaceAll("'","''")}'!G${row}:H${row}`,values:[[entry.minutes,Math.round(entry.minutes/60*10)/10]]}
+    ]})});
   }
 }

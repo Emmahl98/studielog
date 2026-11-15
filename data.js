@@ -20,7 +20,11 @@ export function groupEntries(entries, filter = 'all') {
   return groups;
 }
 export class SheetsStore {
-  constructor(config, getToken, fetcher = fetch) { this.config=config; this.getToken=getToken; this.fetcher=fetcher; }
+  constructor(config, getToken, fetcher = fetch) {
+    this.config=config; this.getToken=getToken;
+    // Native browser fetch rejects a SheetsStore instance as its receiver.
+    this.fetcher=(...args)=>fetcher(...args);
+  }
   async request(path, options={}) {
     const token=this.getToken();
     if (!token) throw new Error('Verbind eerst opnieuw met Google. Je invoer blijft staan.');

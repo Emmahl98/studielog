@@ -18,7 +18,7 @@ test('Notion material labels normalize without losing chapters or unrelated name
  assert.deepEqual(materialList('H6【とびら】 (https://app.notion.com/p/abc), 上級へのとびら (https://app.notion.com/p/book), H5【とびら】, VOCAB N3, Tobira H6'),['Tobira H6','Tobira','Tobira H5','VOCAB N3']);
 });
 test('chart settings survive edits, retries and soft deletion in their own sheet',async()=>{
- const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){assert.ok(decodeURIComponent(path).includes("'Grafieken'!"));if(!options)return{values:rows};const values=JSON.parse(options.body).values;if(options.method==='POST')rows.push(...values);else rows[Number(decodeURIComponent(path).match(/!A(\d+):J/)[1])-1]=values[0];return{};}});
+ const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){assert.ok(decodeURIComponent(path).includes("'Grafieken'!"));if(!options)return{values:rows};const values=JSON.parse(options.body).values;if(options.method==='POST')rows.push(...values);else rows[Number(decodeURIComponent(path).match(/!A(\d+):K/)[1])-1]=values[0];return{};}});
  await store.save(config);await store.save(config);assert.equal(rows.length,2);await store.save({...config,name:'=Literal',period:'7',view:'line'});assert.equal((await store.read())[0].name,'=Literal');await store.remove(config.id);assert.equal((await store.read())[0].status,'verwijderd');await assert.rejects(()=>store.save(config),/verwijderd/);
 });
 

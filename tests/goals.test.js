@@ -47,3 +47,16 @@ test('bad names, hours, missing IDs and duplicate IDs block writes',async()=>{
   rows.push([...rows[1]]);await assert.rejects(store.update({id:'initial',name:'Doel',hours:100}),/dubbel/);
   assert.throws(()=>parseGoals([['id','Doel',100,'onbekend']]),/ongeldige/);
 });
+test('highlight uses one settings cell, replaces the prior goal and can be cleared',async()=>{
+ let selected='first';const calls=[];
+ const sheets={async request(path,options){calls.push({path,options});const decoded=decodeURIComponent(path);
+  if(decoded.includes("'Doelen'!"))return{values:[GOAL_HEADERS,['first','Een',10,'actief'],['second','Twee',20,'actief'],['archived','Oud',10,'gearchiveerd']]};
+  if(!options)return{values:[['HighlightDoelID',selected]]};
+  assert.ok(decoded.includes("'Instellingen'!B3"));selected=JSON.parse(options.body).values[0][0];return{};
+ }};const store=new GoalsStore(sheets);
+ await store.setHighlight('second');assert.equal(await store.readHighlight(),'second');
+ await store.setHighlight('first');assert.equal(selected,'first');
+ await assert.rejects(()=>store.setHighlight('archived'),/actief/);
+ await store.setHighlight('');assert.equal(selected,'');
+ assert.equal(calls.filter(c=>c.options).length,3);
+});

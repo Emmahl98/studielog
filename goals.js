@@ -19,6 +19,8 @@ export function parseGoals(rows){
 export class GoalsStore{
   constructor(sheets,now=()=>new Date().toISOString()){this.sheets=sheets;this.now=now;}
   range(value){return encodeURIComponent(`'Doelen'!${value}`);}
+  async readHighlight(){const result=await this.sheets.request(`/values/${encodeURIComponent("'Instellingen'!A3:B3")}?valueRenderOption=UNFORMATTED_VALUE`);if(result.values?.[0]?.[0]!=='HighlightDoelID')throw Error('De highlight-instelling in Google Sheets ontbreekt.');return String(result.values[0][1]||'');}
+  async setHighlight(id){if(id){const goal=await this.find(id);if(goal.status!=='actief')throw Error('Kies een actief doel als highlight.');}await this.readHighlight();await this.sheets.request(`/values/${encodeURIComponent("'Instellingen'!B3")}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[[id]]})});}
   async read(){
     const result=await this.sheets.request(`/values/${this.range('A1:J')}?valueRenderOption=UNFORMATTED_VALUE`);
     const rows=result.values||[];

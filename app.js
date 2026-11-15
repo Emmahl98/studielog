@@ -1,9 +1,9 @@
-import {AnalyticsUI} from './analytics-ui.js?v=12';
+import {AnalyticsUI} from './analytics-ui.js?v=13';
 import {materialList} from './materials.js';
 import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=9';
 import {studyProgress,validGoal} from './progress.js?v=5';
-import {GoalsStore} from './goals.js?v=6';
+import {GoalsStore} from './goals.js?v=13';
 import {goalSchedule} from './goal-schedule.js?v=8';
 import {NotesUI} from './notes-ui.js?v=5';
 import {restoreSession,saveSession,clearSession} from './auth-session.js?v=2';
@@ -11,7 +11,7 @@ const $=id=>document.getElementById(id);
 let token='', expiresAt=0, entries=[], filter='all', busy=false, loaded=false, pending=null, editingId=null;
 let goal=null,goalLoaded=false,goalSaving=false;
 let goals=[],selectedGoalId='',editingGoalId=null,pendingGoalId=null,deletingGoalId=null;
-let noteSaving=false,chartSaving=false;
+let noteSaving=false,chartSaving=false,highlightedGoalId='';
 const hoursFormatter=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 const storageKey='studielog.google-client-id';
 const readClientId=()=>{ try {return localStorage.getItem(storageKey)||config.clientId;} catch{return config.clientId;} };
@@ -87,7 +87,9 @@ function renderProgress(){
 }
 function makeGoalCard(item){
   const progress=goalSchedule(entries,item),article=node('article','goal-card');
+  article.classList.toggle('highlighted-goal',item.id===highlightedGoalId);
   article.append(node('h3','goal-card-title',item.name));
+  const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));article.append(highlightLabel);
   article.append(node('p','goal-status',progress.scheduled?`Start op ${dateFormatter.format(new Date(item.startDate+'T12:00:00'))}`:'Live'));
   if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${dateFormatter.format(new Date(item.deadline+'T12:00:00'))}`));
     article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));
@@ -105,7 +107,7 @@ function goalActions(item,archived){
   for(const [label,action] of options){const button=node('button',`text-button${label==='Verwijderen'?' danger':''}`,label);button.type='button';button.dataset.goalAction='';button.setAttribute('aria-label',`${label}: ${item.name}`);button.addEventListener('click',action);actions.append(button);}return actions;
 }
 function renderGoalControls(){
-  if(!goalLoaded){goals=[];selectedGoalId='';}
+  if(!goalLoaded){goals=[];selectedGoalId='';highlightedGoalId='';}
   const active=goals.filter(item=>item.status==='actief');
   $('goal-cards').replaceChildren(...active.slice(0,3).map(makeGoalCard));
   $('goals-empty').hidden=active.length>0;$('goals-empty').textContent=!loaded?'Verbind met Google om je doelen te zien.':goalLoaded?'Geen actieve doelen. Maak een nieuw doel aan.':'Je doelen zijn nog niet geladen.';
@@ -117,10 +119,11 @@ function renderGoalControls(){
     const article=node('article','archived-goal');article.append(node('strong','',item.name),node('p','goal-feedback',item.archivedHours===null?`Doel: ${hoursFormatter.format(item.hours)} uur`:`${hoursFormatter.format(item.archivedHours)} van ${hoursFormatter.format(item.hours)} uur bij archiveren`));
     article.append(goalActions(item,true));$('archived-goals').append(article);
   }
+  analyticsUI.setHighlight(goals.find(g=>g.id===highlightedGoalId&&g.status==='actief')||null);
   updateConnection();
 }
 async function refreshGoal(){
-  try{goals=await goalsStore.read();goalLoaded=true;$('goal-feedback').textContent='Je doelen worden in Google Sheets bewaard.';$('goal-feedback').classList.remove('error');}
+  try{goals=await goalsStore.read();highlightedGoalId=await goalsStore.readHighlight();goalLoaded=true;$('goal-feedback').textContent='Je doelen worden in Google Sheets bewaard.';$('goal-feedback').classList.remove('error');}
   catch(error){goalLoaded=false;goal=null;goals=[];$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
   renderProgress();
 }
@@ -132,7 +135,7 @@ function openGoalEditor(item=null){
 function openGoalDelete(item){if(busy||goalSaving)return;deletingGoalId=item.id;$('goal-delete-name').textContent=item.name;$('goal-delete-dialog').showModal();}
 async function mutateGoal(action,message,selectId=null){
   if(busy||goalSaving)return false;goalSaving=true;updateConnection();
-  try{await action();if(selectId)selectedGoalId=selectId;goals=await goalsStore.read();goalLoaded=true;renderProgress();$('goal-feedback').textContent=message;$('goal-feedback').classList.remove('error');return true;}
+  try{await action();if(selectId)selectedGoalId=selectId;goals=await goalsStore.read();highlightedGoalId=await goalsStore.readHighlight();goalLoaded=true;renderProgress();$('goal-feedback').textContent=message;$('goal-feedback').classList.remove('error');return true;}
   catch(error){$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');if($('goal-editor').open){$('goal-editor-error').textContent=error.message;$('goal-editor-error').hidden=false;}return false;}
   finally{goalSaving=false;updateConnection();}
 }

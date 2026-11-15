@@ -84,7 +84,8 @@ function makeGoalCard(item){
   article.append(node('h3','goal-card-title',item.name));
   article.append(node('p','goal-status',progress.scheduled?`Start op ${dateFormatter.format(new Date(item.startDate+'T12:00:00'))}`:'Live'));
   if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${dateFormatter.format(new Date(item.deadline+'T12:00:00'))}`));
-    article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));}
+    article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));
+    if(progress.dailyHours!==null)article.append(node('p','goal-weekly',`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours*7)} uur per week`));}
   const ring=node('div','hours-ring');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(item.hours)} uur, ${hoursFormatter.format(progress.percentage)} procent.`);
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 176 176');svg.setAttribute('aria-hidden','true');
   for(const className of ['ring-track','ring-value']){const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');for(const [key,value] of Object.entries({cx:'88',cy:'88',r:'73',class:className,pathLength:'100'}))circle.setAttribute(key,value);if(className==='ring-value')circle.setAttribute('stroke-dasharray',`${progress.ratio*100} 100`);svg.append(circle);}

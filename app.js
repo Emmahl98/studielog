@@ -1,4 +1,5 @@
-import {AnalyticsUI} from './analytics-ui.js?v=13';
+import {displayDate,inputDate} from './dates.js?v=14';
+import {AnalyticsUI} from './analytics-ui.js?v=14';
 import {materialList} from './materials.js';
 import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=9';
@@ -24,9 +25,9 @@ const store=new SheetsStore(config,()=>Date.now()<expiresAt ? token : '');
 const goalsStore=new GoalsStore(store);
 const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
 const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
-const dateFormatter=new Intl.DateTimeFormat('nl-NL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-$('date').value=localDate();
-$('today-label').textContent=new Intl.DateTimeFormat('nl-NL',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
+
+$('date').value=displayDate(localDate());
+$('today-label').textContent=displayDate(localDate());
 $('origin').textContent=location.origin;
 function notify(message, error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);$('notice').hidden=!message;}
 function updateConnection(){
@@ -71,7 +72,7 @@ function render(){
   for (const [date,items] of groups){
     const section=node('section','day');const header=node('div','day-heading');
     const heading=node('h3');
-    const time=node('time','',date===localDate()?'Vandaag':dateFormatter.format(new Date(`${date}T12:00:00`)));time.dateTime=date;heading.append(time);header.append(heading,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
+    const time=node('time','',displayDate(date));time.dateTime=date;heading.append(time);header.append(heading,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
     for(const item of items){
       const article=node('article','entry');const body=node('div','entry-body');body.append(node('p','',item.subject));
       if(item.materials)body.append(node('p','entry-materials',item.materials));
@@ -90,8 +91,8 @@ function makeGoalCard(item){
   article.classList.toggle('highlighted-goal',item.id===highlightedGoalId);
   article.append(node('h3','goal-card-title',item.name));
   const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));article.append(highlightLabel);
-  article.append(node('p','goal-status',progress.scheduled?`Start op ${dateFormatter.format(new Date(item.startDate+'T12:00:00'))}`:'Live'));
-  if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${dateFormatter.format(new Date(item.deadline+'T12:00:00'))}`));
+  article.append(node('p','goal-status',progress.scheduled?`Start op ${displayDate(item.startDate)}`:'Live'));
+  if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${displayDate(item.deadline)}`));
     article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));
     if(progress.dailyHours!==null)article.append(node('p','goal-weekly',`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours*7)} uur per week`));}
   const ring=node('div','hours-ring');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(item.hours)} uur, ${hoursFormatter.format(progress.percentage)} procent.`);
@@ -129,7 +130,7 @@ async function refreshGoal(){
 }
 function openGoalEditor(item=null){
   if(busy||goalSaving||!goalLoaded)return;
-  $('goal-start').value=item?.startDate||'';$('goal-deadline').value=item?.deadline||'';
+  $('goal-start').value=displayDate(item?.startDate||'');$('goal-deadline').value=displayDate(item?.deadline||'');
   editingGoalId=item?.id||null;pendingGoalId=item?.id||crypto.randomUUID();$('goal-name').value=item?.name||'';$('goal-hours').value=item?.hours??'';$('goal-editor-title').textContent=item?'Doel wijzigen':'Nieuw doel';$('goal-editor-error').hidden=true;$('goal-editor').showModal();
 }
 function openGoalDelete(item){if(busy||goalSaving)return;deletingGoalId=item.id;$('goal-delete-name').textContent=item.name;$('goal-delete-dialog').showModal();}
@@ -152,20 +153,20 @@ $('goal-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||goalSaving)return;
   const value=Number($('goal-hours').value),name=$('goal-name').value.trim();
   if(!validGoal(value)||!name||name.length>100){$('goal-editor-error').textContent='Vul een naam en een urendoel groter dan 0 in.';$('goal-editor-error').hidden=false;return;}
-  const item={id:pendingGoalId,name,hours:value,startDate:$('goal-start').value,deadline:$('goal-deadline').value};$('save-goal').textContent='Opslaan…';
+  const item={id:pendingGoalId,name,hours:value,startDate:inputDate($('goal-start').value),deadline:inputDate($('goal-deadline').value)};$('save-goal').textContent='Opslaan…';
   const success=await mutateGoal(()=>editingGoalId?goalsStore.update(item):goalsStore.create(item),'Doel opgeslagen.',editingGoalId&&goals.find(goal=>goal.id===editingGoalId)?.status==='gearchiveerd'?null:item.id);
   $('save-goal').textContent='Doel opslaan';if(success){$('goal-editor').close();editingGoalId=null;pendingGoalId=null;}
 });
 function startEdit(item){
   if(busy)return;editingId=item.id;pending=null;
-  $('date').value=item.date;$('subject').value=item.subject;$('minutes').value=item.minutes??'';$('materials').value=item.materials||'';
+  $('date').value=displayDate(item.date);$('subject').value=item.subject;$('minutes').value=item.minutes??'';$('materials').value=item.materials||'';
   document.querySelectorAll('input[name="type"]').forEach(input=>input.checked=input.value===item.type);
   $('char-count').textContent=`${item.subject.length} / 2000`;$('entry-title').textContent='Studie-item bewerken';$('save').textContent='Wijzigingen opslaan';$('cancel-edit').hidden=false;
   $('entry-form').scrollIntoView({behavior:'smooth',block:'center'});$('subject').focus({preventScroll:true});updateConnection();
 }
 function finishEdit(clear=false){
   editingId=null;pending=null;$('entry-title').textContent='Nieuw studie-item';$('save').textContent='＋ Item opslaan';$('cancel-edit').hidden=true;
-  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=localDate();$('char-count').textContent='0 / 2000';}
+  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=displayDate(localDate());$('char-count').textContent='0 / 2000';}
 }
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){
@@ -205,7 +206,7 @@ document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListen
 $('entry-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy)return;
   if(!token || Date.now()>=expiresAt){notify('Verbind opnieuw met Google. Je invoer blijft staan.',true);updateConnection();return;}
-  const date=$('date').value,type=new FormData(event.currentTarget).get('type'),subject=$('subject').value.trim(),minutes=Number($('minutes').value),materials=materialList($('materials').value).join(', ');
+  const date=inputDate($('date').value),type=new FormData(event.currentTarget).get('type'),subject=$('subject').value.trim(),minutes=Number($('minutes').value),materials=materialList($('materials').value).join(', ');
   if(!subject){notify('Beschrijf kort wat je hebt gestudeerd.',true);$('subject').focus();return;}
   if(!validMinutes(minutes)){notify('Vul een heel aantal minuten groter dan 0 in.',true);$('minutes').focus();return;}
   if(!pending || pending.date!==date || pending.type!==type || pending.subject!==subject || pending.minutes!==minutes || pending.materials!==materials)pending={date,type,subject,minutes,materials,id:editingId||crypto.randomUUID(),createdAt:entries.find(item=>item.id===editingId)?.createdAt||new Date().toISOString()};
@@ -239,5 +240,5 @@ updateConnection();
 if(previousSession){notify('Google-verbinding hersteld. Je studieoverzicht wordt geladen…');refresh(false).then(()=>{if(loaded)notify('Google-verbinding hersteld. Je studieoverzicht is bijgewerkt.');});}
 
 let renderedDay=localDate();
-function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;renderProgress();analyticsUI.setEntries(entries,loaded);}}
+function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;$('today-label').textContent=displayDate(today);renderProgress();analyticsUI.setEntries(entries,loaded);}}
 setInterval(refreshDay,30000);window.addEventListener('focus',refreshDay);document.addEventListener('visibilitychange',refreshDay);

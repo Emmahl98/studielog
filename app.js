@@ -35,9 +35,9 @@ function updateConnection(){
   const connected=!!token && Date.now()<expiresAt;
   if(token && !connected){token='';expiresAt=0;clearSession(sessionStorageAvailable);}
   $('connection-dot').classList.toggle('connected',connected);
-  $('connection-title').textContent=connected?'Verbonden met je Google Sheets':'Je studiedagboek, veilig in Google Sheets';
+  $('connection-title').textContent=connected?'Google Sheets · verbonden':'Google Sheets · niet verbonden';
   $('connection-detail').textContent=connected?'Je items worden rechtstreeks in je privéspreadsheet opgeslagen.':'Verbind je Google-account om je items te bekijken en op te slaan.';
-  $('connect').textContent=connected?'Opnieuw verbinden':'Verbinden met Google';
+  $('connect').textContent=connected?'Opnieuw verbinden':'Verbinden';
   $('disconnect').hidden=!connected;
   $('save').disabled=!connected || locked || !loaded;
   $('refresh').disabled=!connected || locked;
@@ -52,6 +52,7 @@ function updateConnection(){
   $('goal-start').disabled=!connected||locked;$('goal-deadline').disabled=!connected||locked;
   $('save-goal').disabled=!connected || busy || goalSaving;
   $('new-goal').disabled=!connected || locked || !goalLoaded;
+  $('open-goal-archive').disabled=!connected||locked||!goalLoaded;$('close-goal-archive').disabled=locked;
   document.querySelectorAll('[data-goal-action]').forEach(button=>button.disabled=!connected || locked || !goalLoaded);
   $('close-goal-editor').disabled=locked;
   $('confirm-delete-goal').disabled=locked;
@@ -89,10 +90,10 @@ function renderProgress(){
 function makeGoalCard(item){
   const progress=goalSchedule(entries,item),article=node('article','goal-card');
   article.classList.toggle('highlighted-goal',item.id===highlightedGoalId);
-  article.append(node('h3','goal-card-title',item.name));
-  const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));article.append(highlightLabel);
-  article.append(node('p','goal-status',progress.scheduled?`Start op ${displayDate(item.startDate)}`:'Live'));
-  if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${displayDate(item.deadline)}`));
+  const titleRow=node('div','goal-title-row');titleRow.append(node('h3','goal-card-title',item.name));
+  const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));titleRow.append(highlightLabel);article.append(titleRow);
+  const datesRow=node('div','goal-dates-row');datesRow.append(node('p','goal-status',progress.scheduled?`Start ${displayDate(item.startDate)}`:item.startDate?`Live · ${displayDate(item.startDate)}`:'Live'));if(item.deadline)datesRow.append(node('p','goal-dates',`Deadline ${displayDate(item.deadline)}`));article.append(datesRow);
+  if(item.deadline){
     article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));
     if(progress.dailyHours!==null)article.append(node('p','goal-weekly',`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours*7)} uur per week`));}
   const ring=node('div','hours-ring');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(item.hours)} uur, ${hoursFormatter.format(progress.percentage)} procent.`);
@@ -114,7 +115,7 @@ function renderGoalControls(){
   $('goals-empty').hidden=active.length>0;$('goals-empty').textContent=!loaded?'Verbind met Google om je doelen te zien.':goalLoaded?'Geen actieve doelen. Maak een nieuw doel aan.':'Je doelen zijn nog niet geladen.';
   const extra=active.slice(3);$('more-goals').hidden=!extra.length;$('more-goals-title').textContent=`Overige doelen (${extra.length})`;$('overflow-goals').replaceChildren(...extra.map(makeGoalCard));if(!extra.length)$('more-goals').open=false;
   const archived=goals.filter(item=>item.status==='gearchiveerd');
-  $('goal-archive-title').textContent=`Archief (${archived.length})`;$('archived-goals').replaceChildren();
+  $('goal-archive-title').textContent=`Archief (${archived.length})`;$('open-goal-archive').textContent=`Archief (${archived.length})`;$('archived-goals').replaceChildren();
   if(!archived.length)$('archived-goals').append(node('p','goal-feedback','Geen gearchiveerde doelen.'));
   for(const item of archived){
     const article=node('article','archived-goal');article.append(node('strong','',item.name),node('p','goal-feedback',item.archivedHours===null?`Doel: ${hoursFormatter.format(item.hours)} uur`:`${hoursFormatter.format(item.archivedHours)} van ${hoursFormatter.format(item.hours)} uur bij archiveren`));
@@ -144,10 +145,12 @@ async function changeGoalStatus(item,status){
   const hours=goalSchedule(entries,item).hours;
   await mutateGoal(()=>goalsStore.setStatus(item.id,status,hours),status==='gearchiveerd'?'Doel gearchiveerd.':'Doel teruggezet.',status==='actief'?item.id:null);
 }
+$('open-goal-archive').addEventListener('click',()=>$('goal-archive-dialog').showModal());
+$('close-goal-archive').addEventListener('click',()=>$('goal-archive-dialog').close());
 $('new-goal').addEventListener('click',()=>openGoalEditor());
 $('close-goal-editor').addEventListener('click',()=>$('goal-editor').close());
 $('cancel-delete-goal').addEventListener('click',()=>$('goal-delete-dialog').close());
-for(const id of ['goal-editor','goal-delete-dialog'])$(id).addEventListener('cancel',event=>{if(goalSaving)event.preventDefault();});
+for(const id of ['goal-editor','goal-delete-dialog','goal-archive-dialog'])$(id).addEventListener('cancel',event=>{if(goalSaving)event.preventDefault();});
 $('confirm-delete-goal').addEventListener('click',async()=>{if(!deletingGoalId)return;const id=deletingGoalId;if(await mutateGoal(()=>goalsStore.setStatus(id,'verwijderd'),'Doel verwijderd. Je studie-items zijn behouden.')){$('goal-delete-dialog').close();deletingGoalId=null;}});
 $('goal-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||goalSaving)return;
@@ -183,7 +186,7 @@ $('settings-form').addEventListener('submit',event=>{
   if(!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(next)){$('settings-error').textContent='Vul een geldige Google OAuth-client-ID in.';$('settings-error').hidden=false;return;}
   try{localStorage.setItem(storageKey,next);}catch{notify('Instelling geldt voor deze pagina. Je browser kon deze niet onthouden.');}
   if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();finishEdit(true);render();}
-  clientId=next;$('settings').close();updateConnection();notify('Instelling opgeslagen. Klik op ‘Verbinden met Google’.');
+  clientId=next;$('settings').close();updateConnection();notify('');
 });
 $('connect').addEventListener('click',()=>{
   if(!clientId){openSettings();return;}
@@ -194,12 +197,11 @@ $('connect').addEventListener('click',()=>{
     token=result.access_token;expiresAt=Date.now()+Number(result.expires_in)*1000-30000;
     saveSession(sessionStorageAvailable,{clientId,token,expiresAt});
     entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();render();
-    notify('Verbonden. Je studieoverzicht wordt geladen…');await refresh(false);
-    if(loaded)notify('Verbonden. Je kunt nu studie-items opslaan.');
+    notify('');await refresh(false);
   },error_callback:()=>notify('Het Google-inlogvenster is gesloten of geblokkeerd. Sta pop-ups toe en probeer opnieuw.',true)});
   client.requestAccessToken({prompt:''});
 });
-$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();finishEdit(true);render();updateConnection();notify('Je bent uitgelogd. Je opgeslagen items blijven in Google Sheets.');});
+$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();finishEdit(true);render();updateConnection();notify('');});
 $('refresh').addEventListener('click',()=>refresh());
 $('subject').addEventListener('input',()=>{$('char-count').textContent=`${$('subject').value.length} / 2000`;});
 document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();}));
@@ -237,7 +239,7 @@ $('notes-tab').addEventListener('click',()=>showPage('notes'));
 $('data-tab').addEventListener('click',()=>showPage('data'));
 showPage(location.hash==='#notities'?'notes':location.hash==='#data'?'data':'overview');
 updateConnection();
-if(previousSession){notify('Google-verbinding hersteld. Je studieoverzicht wordt geladen…');refresh(false).then(()=>{if(loaded)notify('Google-verbinding hersteld. Je studieoverzicht is bijgewerkt.');});}
+if(previousSession)refresh(false);
 
 let renderedDay=localDate();
 function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;$('today-label').textContent=displayDate(today);renderProgress();analyticsUI.setEntries(entries,loaded);}}

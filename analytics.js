@@ -2,7 +2,7 @@ import {localDate,validDate} from './data.js';
 import {materialList} from './materials.js';
 export const CHART_HEADERS=['ID','Naam','Periode','Groepering','Weergave','Methode','Status','Van','Tot'];
 export function validateChart(chart){
-  if(!chart.id||!chart.name?.trim()||chart.name.length>100||!['3','7','30','90','all','custom'].includes(chart.period)||!['day','type','method'].includes(chart.group)||!['bar','line'].includes(chart.view)||typeof chart.method!=='string'||chart.method.length>2000)throw Error('Vul een geldige naam en grafiekinstellingen in.');
+  if(!chart.id||!chart.name?.trim()||chart.name.length>100||!['1','3','7','30','90','all','custom'].includes(chart.period)||!['day','type','method'].includes(chart.group)||!['bar','line'].includes(chart.view)||typeof chart.method!=='string'||chart.method.length>2000)throw Error('Vul een geldige naam en grafiekinstellingen in.');
   if(chart.period==='custom'&&(!validDate(chart.from)||!validDate(chart.to)||chart.from>chart.to))throw Error('Kies een geldige begin- en einddatum.');
 }
 export function chartData(entries,chart,today=localDate()){

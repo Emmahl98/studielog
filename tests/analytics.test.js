@@ -21,3 +21,8 @@ test('chart settings survive edits, retries and soft deletion in their own sheet
  const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){assert.ok(decodeURIComponent(path).includes("'Grafieken'!"));if(!options)return{values:rows};const values=JSON.parse(options.body).values;if(options.method==='POST')rows.push(...values);else rows[Number(decodeURIComponent(path).match(/!A(\d+):I/)[1])-1]=values[0];return{};}});
  await store.save(config);await store.save(config);assert.equal(rows.length,2);await store.save({...config,name:'=Literal',period:'7',view:'line'});assert.equal((await store.read())[0].name,'=Literal');await store.remove(config.id);assert.equal((await store.read())[0].status,'verwijderd');await assert.rejects(()=>store.save(config),/verwijderd/);
 });
+
+test('today period only counts today and is a valid chart option',()=>{
+ const chart={...config,period:'1'};validateChart(chart);
+ const data=chartData(entries,chart,'2026-11-15');assert.equal(data.hours,.5);assert.equal(data.points.length,1);assert.equal(data.from,'2026-11-15');assert.equal(data.to,'2026-11-15');
+});

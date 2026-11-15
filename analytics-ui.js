@@ -1,4 +1,4 @@
-import {ChartStore,chartData} from './analytics.js?v=9';
+import {ChartStore,chartData} from './analytics.js?v=11';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}

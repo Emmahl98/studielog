@@ -6,7 +6,7 @@ Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar 
 
 Doelen staan in het tabblad `Doelen`, met kolommen ID, Naam, Doeluren, Status, Aangemaakt, Bijgewerkt, Gearchiveerd op, Uren bij archiveren, Startdatum en Deadline. Het oorspronkelijke doel uit `Instellingen!B2` is eenmalig overgenomen als ‘Mijn urendoel’. De oude instelling blijft bewaard voor de eerdere websiteversie, maar wordt door de nieuwe interface niet gebruikt.
 
-De uren worden berekend uit de minuten van alle lessen en sessies, onafhankelijk van het gekozen filter. Zonder startdatum gebruikt elk actief doel hetzelfde totaal aan gemaakte uren tot en met vandaag. Met een startdatum tellen alleen uren vanaf die datum mee. Zonder actief doel blijft de ring leeg. Bij het overschrijden van het doel blijft de ring volledig gevuld en toont de tekst het werkelijke percentage.
+De uren worden berekend uit de minuten van alle lessen en sessies, onafhankelijk van het gekozen filter. Elk actief doel gebruikt alle gemaakte studie-uren, onafhankelijk van de startdatum. Zonder actief doel blijft de ring leeg. Bij het overschrijden van het doel blijft de ring volledig gevuld en toont de tekst het werkelijke percentage.
 
 ## Website
 
@@ -51,4 +51,4 @@ Bij bewerken zoekt de app opnieuw het item-ID op en schrijft alleen Datum, Label
 
 De tab Studienotities biedt korte notities met een optionele titel, aanklikbare webadressen en zoeken op titel of inhoud. Notities zijn te wijzigen, archiveren, terugzetten en verwijderen. Ze staan apart in Studienotities (ID, Titel, Notitie, Status, Aangemaakt, Bijgewerkt). Verwijderen geeft de status verwijderd; de rij blijft in de Sheet bewaard.
 
-Doelen hebben optionele Startdatum en Deadline (kolommen I en J, YYYY-MM-DD). Vanaf de startdatum staat het doel Live; tot die dag wordt de startdatum getoond. Alleen uren vanaf de startdatum tot en met vandaag tellen mee; zonder startdatum alle uren tot vandaag. Bij een deadline toont de kaart resterende uren gedeeld door kalenderdagen vanaf vandaag (of een toekomstige startdatum), inclusief de deadline. Na de deadline verschijnt Deadline verstreken. Zonder deadline is er geen dagtempo.
+Doelen hebben optionele Startdatum en Deadline (kolommen I en J, YYYY-MM-DD). Vanaf de startdatum staat het doel Live; tot die dag wordt de startdatum getoond. Alle gemaakte uren tellen mee. De startdatum bepaalt alleen de status en de periode voor het dag- en weektempo. Bij een deadline toont de kaart resterende uren gedeeld door kalenderdagen vanaf vandaag (of een toekomstige startdatum), inclusief de deadline. Na de deadline verschijnt Deadline verstreken. Zonder deadline is er geen dagtempo.

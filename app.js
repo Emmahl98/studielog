@@ -2,7 +2,7 @@ import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=5';
 import {studyProgress,validGoal} from './progress.js?v=5';
 import {GoalsStore} from './goals.js?v=6';
-import {goalSchedule} from './goal-schedule.js?v=6';
+import {goalSchedule} from './goal-schedule.js?v=8';
 import {NotesUI} from './notes-ui.js?v=5';
 import {restoreSession,saveSession,clearSession} from './auth-session.js?v=2';
 const $=id=>document.getElementById(id);

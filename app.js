@@ -21,6 +21,9 @@ function updateConnection(){
   $('save').disabled=!connected || busy || !loaded;
   $('refresh').disabled=!connected || busy;
   $('connect').disabled=busy;
+  $('disconnect').disabled=busy;
+  $('settings-button').disabled=busy;
+  $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=busy);
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
@@ -32,8 +35,8 @@ function render(){
   }
   for (const [date,items] of groups){
     const section=node('section','day');const header=node('div','day-heading');
-    const heading=node('h3','',date===localDate()?'Vandaag':dateFormatter.format(new Date(`${date}T12:00:00`)));
-    const time=node('time');time.dateTime=date;time.append(heading);header.append(time,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
+    const heading=node('h3');
+    const time=node('time','',date===localDate()?'Vandaag':dateFormatter.format(new Date(`${date}T12:00:00`)));time.dateTime=date;heading.append(time);header.append(heading,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
     for(const item of items){const article=node('article','entry');article.append(node('span',`badge ${item.type}`,item.type),node('p','',item.subject));section.append(article);}
     $('entries').append(section);
   }
@@ -61,6 +64,7 @@ $('connect').addEventListener('click',()=>{
     if(result.error){notify('Verbinden is niet gelukt. Geef toestemming voor Google Sheets en probeer opnieuw.',true);return;}
     if(!google.accounts.oauth2.hasGrantedAllScopes(result,'https://www.googleapis.com/auth/spreadsheets')){notify('Geef toestemming voor Google Sheets om je studiedagboek te gebruiken.',true);return;}
     token=result.access_token;expiresAt=Date.now()+Number(result.expires_in)*1000-30000;
+    entries=[];loaded=false;render();
     notify('Verbonden. Je studieoverzicht wordt geladen…');await refresh(false);
     if(loaded)notify('Verbonden. Je kunt nu studie-items opslaan.');
   },error_callback:()=>notify('Het Google-inlogvenster is gesloten of geblokkeerd. Sta pop-ups toe en probeer opnieuw.',true)});

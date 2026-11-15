@@ -21,3 +21,6 @@ input[type=number]{width:100%;border:1px solid #dfe3d9;border-radius:6px;padding
 @media(max-width:430px){.header-tools{flex-basis:100%;justify-content:space-between}.header-connection{justify-content:flex-start}.topbar{gap:5px}.brand-icon{height:26px;width:25px;font-size:17px}.intro{padding-top:14px}}
 
 @media(max-width:650px){.topbar{display:grid;grid-template-columns:1fr auto;row-gap:5px;padding:8px 0}.brand{grid-row:1;grid-column:1}.header-tools{display:contents}.header-tools>#settings-button{grid-row:1;grid-column:2}.header-connection{grid-row:2;grid-column:1/-1;display:flex;flex-wrap:nowrap;justify-content:flex-start;gap:10px}.connection-state{font-size:10px}.header-connection .button{padding:6px 8px;font-size:10px}.header-connection .text-button{padding:6px 0}.brand-icon{width:25px;height:27px}.header-tools .text-button{font-size:10px}}
+
+
+.chart-method-options{display:grid;gap:.5rem;max-height:16rem;overflow:auto}.chart-method-option{display:flex;align-items:center;gap:.6rem;margin:0}.chart-method-option input{width:auto;margin:0;flex-shrink:0}

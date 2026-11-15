@@ -1,5 +1,5 @@
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=14';
+import {AnalyticsUI} from './analytics-ui.js?v=16';
 import {materialList} from './materials.js';
 import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=9';
@@ -244,3 +244,4 @@ if(previousSession)refresh(false);
 let renderedDay=localDate();
 function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;$('today-label').textContent=displayDate(today);renderProgress();analyticsUI.setEntries(entries,loaded);}}
 setInterval(refreshDay,30000);window.addEventListener('focus',refreshDay);document.addEventListener('visibilitychange',refreshDay);
+

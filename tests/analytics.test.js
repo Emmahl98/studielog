@@ -36,3 +36,21 @@ test('chart sorting supports dates, natural textbook names and hours in both dir
  assert.equal(chartData(books,{...chart,sort:'hours-asc'},'2026-11-15').points[0].label,'Tobira H10');
  assert.equal(chartData(books,{...chart,sort:'hours-desc'},'2026-11-15').points[0].label,'Tobira H2');
 });
+
+
+test('multiple selected methods hide other groups and preserve allocated hours',()=>{
+ const chart={...config,group:'method',method:JSON.stringify(['Tobira','Tobira H6'])};
+ const d=chartData(entries,chart,'2026-11-15');
+ assert.deepEqual(d.points.map(p=>p.label).sort(),['Tobira','Tobira H6']);
+ assert.equal(d.hours,1.5);
+ const one=chartData(entries,{...chart,method:JSON.stringify(['Tobira'])},'2026-11-15');
+ assert.deepEqual(one.points,[{label:'Tobira',hours:.5}]);assert.equal(one.hours,.5);
+ assert.equal(chartData(entries,{...config,method:'[]'},'2026-11-15').hours,1.5);
+ assert.equal(chartData(entries,{...config,method:chart.method},'2026-11-15').hours,1.5);
+});
+
+test('multiple method choices survive saving and reloading',async()=>{
+ const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){if(!options)return {values:rows};rows.push(...JSON.parse(options.body).values);return {};}});
+ const method=JSON.stringify(['Tobira','Tobira H6']);await store.save({...config,method});
+ assert.equal((await store.read())[0].method,method);
+});

@@ -9,7 +9,7 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=9">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=9"></script>
+  <script type="module" src="./app.js?v=10"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -23,13 +23,7 @@
       <span id="today-label" class="today"></span>
     </section>
     <nav class="page-tabs" aria-label="Pagina kiezen"><button type="button" id="overview-tab" aria-pressed="true">Studieoverzicht</button><button type="button" id="notes-tab" aria-pressed="false">Studienotities</button><button type="button" id="data-tab" aria-pressed="false">Data</button></nav>
-    <section id="overview-goals" class="goals-area" data-overview-panel aria-labelledby="goals-heading">
-      <div class="goals-heading"><h2 id="goals-heading">Mijn doelen</h2><button type="button" id="new-goal" class="button secondary" disabled>Nieuw doel</button></div>
-      <p id="goals-empty" class="goal-feedback">Verbind met Google om je doelen te zien.</p><div id="goal-cards" class="goals-grid"></div>
-      <details id="more-goals" hidden><summary id="more-goals-title">Overige doelen (0)</summary><div id="overflow-goals" class="goals-grid"></div></details>
-      <p id="goal-feedback" class="goal-feedback" role="status" aria-live="polite">Je doelen worden in Google Sheets bewaard.</p>
-      <details id="goal-archive" class="goal-archive"><summary id="goal-archive-title">Archief (0)</summary><div id="archived-goals"></div></details>
-    </section>
+
     <section class="connection" aria-label="Google Sheets-verbinding">
       <div><span id="connection-dot" class="dot" aria-hidden="true"></span><strong id="connection-title">Je studiedagboek, veilig in Google Sheets</strong><p id="connection-detail">Verbind je Google-account om je items te bekijken en op te slaan.</p></div>
       <div class="connection-actions"><button id="connect" type="button" class="button secondary">Verbinden met Google</button><button id="disconnect" type="button" class="text-button" hidden>Uitloggen</button></div>
@@ -60,7 +54,15 @@
       <div class="entry-card"><h2 id="note-form-title">Nieuwe notitie</h2><form id="note-form"><label for="note-title">Titel (optioneel)</label><input id="note-title" type="text" maxlength="100" placeholder="Bijvoorbeeld: handige grammaticasites"><label for="note-body">Notitie of links</label><textarea id="note-body" rows="7" maxlength="5000" placeholder="Schrijf je notitie of plak een link…" required></textarea><button id="save-note" type="submit" class="button primary" disabled>Notitie opslaan</button><button id="cancel-note-edit" type="button" class="text-button cancel-edit" hidden>Bewerken annuleren</button><p id="note-feedback" class="goal-feedback" role="status" aria-live="polite">Je notities worden in Google Sheets bewaard.</p></form></div>
       <div class="notes-overview"><h2 id="notes-title">Studienotities</h2><label for="note-search" class="search-label">Zoek notities</label><input id="note-search" type="search" placeholder="Zoek op tekst, titel of link"><div class="filters" aria-label="Notities filteren"><button type="button" id="active-notes" aria-pressed="true">Actief</button><button type="button" id="archived-notes" aria-pressed="false">Archief</button></div><p id="notes-count" class="goal-feedback"></p><div id="notes-list"></div></div>
     </section>
-    <section id="data-panel" hidden aria-labelledby="data-title"><div class="goals-heading"><h2 id="data-title">Mijn grafieken</h2><button id="new-chart" type="button" class="button secondary" disabled>Grafiek toevoegen</button></div><p id="data-feedback" class="goal-feedback" role="status">Je grafieken worden in Google Sheets bewaard.</p><div id="data-charts" class="data-charts"></div></section>
+    <section id="data-panel" hidden aria-labelledby="data-title">
+    <section id="overview-goals" class="goals-area" aria-labelledby="goals-heading">
+      <div class="goals-heading"><h2 id="goals-heading">Mijn doelen</h2><button type="button" id="new-goal" class="button secondary" disabled>Nieuw doel</button></div>
+      <p id="goals-empty" class="goal-feedback">Verbind met Google om je doelen te zien.</p><div id="goal-cards" class="goals-grid"></div>
+      <details id="more-goals" hidden><summary id="more-goals-title">Overige doelen (0)</summary><div id="overflow-goals" class="goals-grid"></div></details>
+      <p id="goal-feedback" class="goal-feedback" role="status" aria-live="polite">Je doelen worden in Google Sheets bewaard.</p>
+      <details id="goal-archive" class="goal-archive"><summary id="goal-archive-title">Archief (0)</summary><div id="archived-goals"></div></details>
+    </section>
+<div class="goals-heading"><h2 id="data-title">Mijn grafieken</h2><button id="new-chart" type="button" class="button secondary" disabled>Grafiek toevoegen</button></div><p id="data-feedback" class="goal-feedback" role="status">Je grafieken worden in Google Sheets bewaard.</p><div id="data-charts" class="data-charts"></div></section>
     <footer><span>Een klein moment. Een stap vooruit.</span><a href="https://docs.google.com/spreadsheets/d/1ck_neDZ12EwJypQUquVR9ucOa9MlX-wG37GAk5USJG8/edit" target="_blank" rel="noopener noreferrer">Open mijn spreadsheet ↗</a></footer>
   </main>
   <dialog id="goal-editor"><form id="goal-form"><div class="dialog-heading"><h2 id="goal-editor-title">Nieuw doel</h2><button type="button" id="close-goal-editor" class="text-button" aria-label="Doelvenster sluiten">✕</button></div><label for="goal-name">Naam van je doel</label><input type="text" id="goal-name" maxlength="100" placeholder="Bijvoorbeeld: Japans 1000 uur" required><label for="goal-hours">Doel in uren</label><input type="number" id="goal-hours" min="0" step="any" inputmode="decimal" placeholder="Bijvoorbeeld 1000" required><label for="goal-start">Startdatum (optioneel)</label><input type="date" id="goal-start"><label for="goal-deadline">Deadline (optioneel)</label><input type="date" id="goal-deadline"><p class="goal-feedback">Alle gemaakte studie-uren tellen mee. De startdatum bepaalt alleen wanneer het doel live gaat en vanaf wanneer het dagtempo wordt berekend. Het dagtempo telt vandaag en de deadline mee, of begint op je toekomstige startdatum.</p><p id="goal-editor-error" class="error" role="alert" hidden></p><button id="save-goal" type="submit" class="button primary">Doel opslaan</button></form></dialog>

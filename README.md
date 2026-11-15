@@ -2,7 +2,7 @@
 
 Een eenvoudig Nederlands studiedagboek. Voeg meerdere items per dag toe, kies **sessie** of **les**, vul de minuten in en bekijk je geschiedenis per dag. Met **Bewerken** pas je later de datum, soort, beschrijving en minuten aan. Werkt op mobiel en desktop.
 
-Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar urendoel. Maak doelen met een naam en een aantal uren en kies het actieve doel in de keuzelijst. **Wijzigen** past naam en uren aan. **Archiveren** bewaart het doel en de gemaakte uren op dat moment in het archief. **Terugzetten** maakt een gearchiveerd doel weer actief. **Verwijderen** vraagt bevestiging en haalt alleen het doel uit de interface. Studie-items blijven altijd behouden. Verwijderde doelen krijgen in de Sheet de status `verwijderd` en kunnen daar zo nodig worden hersteld.
+Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar urendoel. Maak doelen met een naam en een aantal uren en bekijk maximaal drie doelen naast elkaar; overige doelen staan achter een uitklapper. **Wijzigen** past naam en uren aan. **Archiveren** bewaart het doel en de gemaakte uren op dat moment in het archief. **Terugzetten** maakt een gearchiveerd doel weer actief. **Verwijderen** vraagt bevestiging en haalt alleen het doel uit de interface. Studie-items blijven altijd behouden. Verwijderde doelen krijgen in de Sheet de status `verwijderd` en kunnen daar zo nodig worden hersteld.
 
 Doelen staan in het tabblad `Doelen`, met kolommen ID, Naam, Doeluren, Status, Aangemaakt, Bijgewerkt, Gearchiveerd op en Uren bij archiveren. Het oorspronkelijke doel uit `Instellingen!B2` is eenmalig overgenomen als ‘Mijn urendoel’. De oude instelling blijft bewaard voor de eerdere websiteversie, maar wordt door de nieuwe interface niet gebruikt.
 
@@ -46,3 +46,7 @@ Open de site via een lokale HTTP-server; OAuth werkt niet via `file://`. Voeg ee
 `npm test` voert tests uit voor datums, meerdere items per dag, filteren, letterlijk opslaan, opnieuw proberen en foutafhandeling. Geen installatie van dependencies nodig.
 
 Bij bewerken zoekt de app opnieuw het item-ID op en schrijft alleen Datum, Label, Onderwerp, Minuten en Uren. De oorspronkelijke Notion-velden, het ID en het aanmaaktijdstip blijven behouden. Bewerk de Sheet niet tegelijkertijd met opslaan op de website. Items zonder ID kunnen alleen in de Sheet worden aangepast. Verwijderen gaat rechtstreeks via Google Sheets. Vernieuw daarna het overzicht.
+
+## Studienotities
+
+De tab Studienotities biedt korte notities met een optionele titel, aanklikbare webadressen en zoeken op titel of inhoud. Notities zijn te wijzigen, archiveren, terugzetten en verwijderen. Ze staan apart in Studienotities (ID, Titel, Notitie, Status, Aangemaakt, Bijgewerkt). Verwijderen geeft de status verwijderd; de rij blijft in de Sheet bewaard.

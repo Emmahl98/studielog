@@ -7,9 +7,9 @@
   <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
   <title>Studielog · Mijn studiedagboek</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=4">
+  <link rel="stylesheet" href="./style.css?v=5">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=4"></script>
+  <script type="module" src="./app.js?v=5"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -22,24 +22,20 @@
       <div><p class="eyebrow">ELKE DAG EEN BEETJE VERDER</p><h1>Wat heb je geleerd?</h1></div>
       <span id="today-label" class="today"></span>
     </section>
-    <section class="progress-card" aria-labelledby="progress-title">
-      <div id="hours-ring" class="hours-ring" role="img" aria-label="Verbind met Google om je gemaakte uren te zien.">
-        <svg viewBox="0 0 176 176" aria-hidden="true"><circle class="ring-track" cx="88" cy="88" r="73"/><circle id="ring-value" class="ring-value" cx="88" cy="88" r="73" pathLength="100" stroke-dasharray="0 100"/></svg>
-        <div class="ring-center"><strong id="hours-total">—</strong><span>uur gemaakt</span></div>
-      </div>
-      <div class="progress-details"><h2 id="progress-title">Mijn doelen</h2><p id="goal-summary" class="goal-summary">Verbind met Google om je voortgang te zien.</p><p id="goal-remaining" class="goal-remaining"></p>
-        <label for="goal-select">Actief doel</label><div class="goal-controls"><select id="goal-select" disabled><option value="">Geen actief doel</option></select><button type="button" id="new-goal" class="button secondary" disabled>Nieuw doel</button></div>
-        <div id="selected-goal-actions" class="goal-actions" hidden><button type="button" id="edit-goal" class="text-button" data-goal-action>Wijzigen</button><button type="button" id="archive-goal" class="text-button" data-goal-action>Archiveren</button><button type="button" id="delete-goal" class="text-button danger" data-goal-action>Verwijderen</button></div>
-        <p id="goal-feedback" class="goal-feedback" role="status" aria-live="polite">Je doelen worden in Google Sheets bewaard.</p>
-        <details id="goal-archive" class="goal-archive"><summary id="goal-archive-title">Archief (0)</summary><div id="archived-goals"></div></details>
-      </div>
+    <nav class="page-tabs" aria-label="Pagina kiezen"><button type="button" id="overview-tab" aria-pressed="true">Studieoverzicht</button><button type="button" id="notes-tab" aria-pressed="false">Studienotities</button></nav>
+    <section id="overview-goals" class="goals-area" data-overview-panel aria-labelledby="goals-heading">
+      <div class="goals-heading"><h2 id="goals-heading">Mijn doelen</h2><button type="button" id="new-goal" class="button secondary" disabled>Nieuw doel</button></div>
+      <p id="goals-empty" class="goal-feedback">Verbind met Google om je doelen te zien.</p><div id="goal-cards" class="goals-grid"></div>
+      <details id="more-goals" hidden><summary id="more-goals-title">Overige doelen (0)</summary><div id="overflow-goals" class="goals-grid"></div></details>
+      <p id="goal-feedback" class="goal-feedback" role="status" aria-live="polite">Je doelen worden in Google Sheets bewaard.</p>
+      <details id="goal-archive" class="goal-archive"><summary id="goal-archive-title">Archief (0)</summary><div id="archived-goals"></div></details>
     </section>
     <section class="connection" aria-label="Google Sheets-verbinding">
       <div><span id="connection-dot" class="dot" aria-hidden="true"></span><strong id="connection-title">Je studiedagboek, veilig in Google Sheets</strong><p id="connection-detail">Verbind je Google-account om je items te bekijken en op te slaan.</p></div>
       <div class="connection-actions"><button id="connect" type="button" class="button secondary">Verbinden met Google</button><button id="disconnect" type="button" class="text-button" hidden>Uitloggen</button></div>
     </section>
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
-    <div class="workspace">
+    <div class="workspace" data-overview-panel>
       <section class="entry-card" aria-labelledby="entry-title">
         <h2 id="entry-title">Nieuw studie-item</h2>
         <form id="entry-form">
@@ -59,11 +55,16 @@
         <div id="entries" aria-busy="false"><div class="empty"><span class="empty-mark" aria-hidden="true">栞</span><h3>Ruimte om te groeien</h3><p>Verbind met Google en leg je eerste studiemoment vast.<br>Je vindt je items hier terug, netjes per dag.</p></div></div>
       </section>
     </div>
+    <section id="notes-panel" class="notes-workspace" aria-labelledby="notes-title" hidden>
+      <div class="entry-card"><h2 id="note-form-title">Nieuwe notitie</h2><form id="note-form"><label for="note-title">Titel (optioneel)</label><input id="note-title" type="text" maxlength="100" placeholder="Bijvoorbeeld: handige grammaticasites"><label for="note-body">Notitie of links</label><textarea id="note-body" rows="7" maxlength="5000" placeholder="Schrijf je notitie of plak een link…" required></textarea><button id="save-note" type="submit" class="button primary" disabled>Notitie opslaan</button><button id="cancel-note-edit" type="button" class="text-button cancel-edit" hidden>Bewerken annuleren</button><p id="note-feedback" class="goal-feedback" role="status" aria-live="polite">Je notities worden in Google Sheets bewaard.</p></form></div>
+      <div class="notes-overview"><h2 id="notes-title">Studienotities</h2><label for="note-search" class="search-label">Zoek notities</label><input id="note-search" type="search" placeholder="Zoek op tekst, titel of link"><div class="filters" aria-label="Notities filteren"><button type="button" id="active-notes" aria-pressed="true">Actief</button><button type="button" id="archived-notes" aria-pressed="false">Archief</button></div><p id="notes-count" class="goal-feedback"></p><div id="notes-list"></div></div>
+    </section>
     <footer><span>Een klein moment. Een stap vooruit.</span><a href="https://docs.google.com/spreadsheets/d/1ck_neDZ12EwJypQUquVR9ucOa9MlX-wG37GAk5USJG8/edit" target="_blank" rel="noopener noreferrer">Open mijn spreadsheet ↗</a></footer>
   </main>
   <dialog id="goal-editor"><form id="goal-form"><div class="dialog-heading"><h2 id="goal-editor-title">Nieuw doel</h2><button type="button" id="close-goal-editor" class="text-button" aria-label="Doelvenster sluiten">✕</button></div><label for="goal-name">Naam van je doel</label><input type="text" id="goal-name" maxlength="100" placeholder="Bijvoorbeeld: Japans 1000 uur" required><label for="goal-hours">Doel in uren</label><input type="number" id="goal-hours" min="0" step="any" inputmode="decimal" placeholder="Bijvoorbeeld 1000" required><p class="goal-feedback">Alle gemaakte studie-uren tellen mee voor dit doel.</p><p id="goal-editor-error" class="error" role="alert" hidden></p><button id="save-goal" type="submit" class="button primary">Doel opslaan</button></form></dialog>
   <dialog id="goal-delete-dialog"><h2>Doel verwijderen?</h2><p id="goal-delete-name"></p><p>Dit doel verdwijnt uit je overzicht. Je studie-items blijven behouden.</p><div class="delete-actions"><button type="button" id="cancel-delete-goal" class="button secondary">Annuleren</button><button type="button" id="confirm-delete-goal" class="button delete-button">Verwijderen</button></div></dialog>
   <dialog id="settings"><form id="settings-form"><div class="dialog-heading"><h2>Google Sheets verbinden</h2><button type="button" id="close-settings" class="text-button" aria-label="Instellingen sluiten">✕</button></div><p>Voor de eerste verbinding is een Google OAuth-client-ID nodig. Daarna kun je met je eigen Google-account inloggen.</p><label for="client-id">Google OAuth-client-ID</label><input id="client-id" type="text" placeholder="…apps.googleusercontent.com" autocomplete="off" required><p class="field-hint">Dit is een openbare app-ID, geen wachtwoord of clientsleutel.</p><details><summary>Eenmalig instellen</summary><ol><li>Maak een project in de <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> en schakel de Google Sheets API in. Facturering is niet nodig.</li><li>Stel Google Auth Platform in. Kies bij een persoonlijk account ‘External’ en voeg jezelf toe als testgebruiker.</li><li>Maak onder ‘Clients’ een OAuth-client van het type ‘Web application’.</li><li>Voeg als ‘Authorized JavaScript origin’ toe: <code id="origin"></code></li><li>Kopieer de client-ID naar het veld hierboven. Gebruik geen client secret.</li></ol><p>In testmodus kan Google je opnieuw om toestemming vragen. Je spreadsheet hoeft niet openbaar te worden.</p></details><p id="settings-error" role="alert" class="error" hidden></p><button type="submit" class="button primary">Instellingen opslaan</button></form></dialog>
+  <dialog id="note-delete-dialog"><h2>Notitie verwijderen?</h2><p id="note-delete-title"></p><p>Deze notitie verdwijnt uit je overzicht.</p><div class="delete-actions"><button type="button" id="cancel-delete-note" class="button secondary">Annuleren</button><button type="button" id="confirm-delete-note" class="button delete-button">Verwijderen</button></div></dialog>
   <noscript>Schakel JavaScript in om je studiedagboek te gebruiken.</noscript>
 </body>
 </html>

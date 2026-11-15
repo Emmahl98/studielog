@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#31584a">
+  <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
+  <title>Studielog · Mijn studiedagboek</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script type="module" src="./app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Naar inhoud</a>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="brand-icon" aria-hidden="true">栞</span> Studielog<span class="brand-sub">MIJN STUDIEDAGBOEK</span></a>
+    <button id="settings-button" class="text-button" type="button">Instellingen</button>
+  </header>
+  <main id="main">
+    <section class="intro">
+      <div><p class="eyebrow">ELKE DAG EEN BEETJE VERDER</p><h1>Wat heb je geleerd?</h1><p class="intro-copy">Een plek voor je lessen, je sessies en alles wat je bijblijft.</p></div>
+      <span id="today-label" class="today"></span>
+    </section>
+    <section class="connection" aria-label="Google Sheets-verbinding">
+      <div><span id="connection-dot" class="dot" aria-hidden="true"></span><strong id="connection-title">Je studiedagboek, veilig in Google Sheets</strong><p id="connection-detail">Verbind je Google-account om je items te bekijken en op te slaan.</p></div>
+      <div class="connection-actions"><button id="connect" type="button" class="button secondary">Verbinden met Google</button><button id="disconnect" type="button" class="text-button" hidden>Uitloggen</button></div>
+    </section>
+    <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
+    <div class="workspace">
+      <section class="entry-card" aria-labelledby="entry-title">
+        <p class="eyebrow">EVEN VASTLEGGEN</p><h2 id="entry-title">Nieuw studie-item</h2>
+        <form id="entry-form">
+          <label for="date">Datum</label><input type="date" id="date" name="date" required>
+          <fieldset><legend>Soort</legend><div class="type-options"><label class="type-option"><input type="radio" name="type" value="sessie" checked><span>Sessie<small>Zelf gestudeerd</small></span></label><label class="type-option"><input type="radio" name="type" value="les"><span>Les<small>Les gevolgd</small></span></label></div></fieldset>
+          <label for="subject">Wat heb je gestudeerd?</label><textarea id="subject" name="subject" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: hoofdstuk 3 herhaald en kanji geoefend" required></textarea>
+          <div class="field-hint"><span>Groot of klein: het telt allemaal mee.</span><span id="char-count">0 / 2000</span></div>
+          <button class="button primary" id="save" type="submit" disabled><span aria-hidden="true">＋</span> Item opslaan</button>
+          <p class="save-hint" id="save-hint">Verbind eerst met Google om op te slaan.</p>
+        </form>
+      </section>
+      <section class="journal" aria-labelledby="journal-title">
+        <div class="journal-heading"><div><p class="eyebrow">STAP VOOR STAP</p><h2 id="journal-title">Mijn studieoverzicht <span id="total-count" class="count">0</span></h2></div><button id="refresh" type="button" class="text-button" disabled>Vernieuwen <span aria-hidden="true">↻</span></button></div>
+        <div class="filters" role="group" aria-label="Filter op soort"><button type="button" data-filter="all" aria-pressed="true">Alles</button><button type="button" data-filter="sessie" aria-pressed="false">Sessies</button><button type="button" data-filter="les" aria-pressed="false">Lessen</button></div>
+        <div id="entries" aria-busy="false"><div class="empty"><span class="empty-mark" aria-hidden="true">栞</span><h3>Ruimte om te groeien</h3><p>Verbind met Google en leg je eerste studiemoment vast.<br>Je vindt je items hier terug, netjes per dag.</p></div></div>
+      </section>
+    </div>
+    <footer><span>Een klein moment. Een stap vooruit.</span><a href="https://docs.google.com/spreadsheets/d/1ck_neDZ12EwJypQUquVR9ucOa9MlX-wG37GAk5USJG8/edit" target="_blank" rel="noopener noreferrer">Open mijn spreadsheet ↗</a></footer>
+  </main>
+  <dialog id="settings"><form id="settings-form"><div class="dialog-heading"><h2>Google Sheets verbinden</h2><button type="button" id="close-settings" class="text-button" aria-label="Instellingen sluiten">✕</button></div><p>Voor de eerste verbinding is een Google OAuth-client-ID nodig. Daarna kun je met je eigen Google-account inloggen.</p><label for="client-id">Google OAuth-client-ID</label><input id="client-id" type="text" placeholder="…apps.googleusercontent.com" autocomplete="off" required><p class="field-hint">Dit is een openbare app-ID, geen wachtwoord of clientsleutel.</p><details><summary>Eenmalig instellen</summary><ol><li>Maak een project in de <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a> en schakel de Google Sheets API in. Facturering is niet nodig.</li><li>Stel Google Auth Platform in. Kies bij een persoonlijk account ‘External’ en voeg jezelf toe als testgebruiker.</li><li>Maak onder ‘Clients’ een OAuth-client van het type ‘Web application’.</li><li>Voeg als ‘Authorized JavaScript origin’ toe: <code id="origin"></code></li><li>Kopieer de client-ID naar het veld hierboven. Gebruik geen client secret.</li></ol><p>In testmodus kan Google je opnieuw om toestemming vragen. Je spreadsheet hoeft niet openbaar te worden.</p></details><p id="settings-error" role="alert" class="error" hidden></p><button type="submit" class="button primary">Instellingen opslaan</button></form></dialog>
+  <noscript>Schakel JavaScript in om je studiedagboek te gebruiken.</noscript>
+</body>
+</html>

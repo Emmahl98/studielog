@@ -47,6 +47,7 @@ function updateConnection(){
   $('cancel-edit').disabled=locked;
   document.querySelectorAll('.edit-entry').forEach(button=>button.disabled=locked || !connected || button.dataset.editable!=='true');
   $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=locked);
+  $('add-material').disabled=locked;
   $('goal-hours').disabled=!connected || busy || goalSaving;
   $('goal-name').disabled=!connected || locked;
   $('goal-start').disabled=!connected||locked;$('goal-deadline').disabled=!connected||locked;
@@ -61,10 +62,28 @@ function updateConnection(){
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
+function renderMaterials(){
+  const selected=materialList($('materials').value);
+  const options=[...new Set([...entries.flatMap(e=>materialList(e.materials)),...selected])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
+  $('material-options').replaceChildren();
+  for(const method of options){const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();});label.append(input,document.createTextNode(method));$('material-options').append(label);}
+  if(!options.length)$('material-options').append(node('p','goal-feedback','Nog geen methoden. Voeg hieronder je eerste methode toe.'));
+  updateMaterialsSummary();
+}
+function updateMaterialsSummary(){const selected=materialList($('materials').value);$('materials-summary').textContent=selected.length?selected.join(', '):'Selecteer studieboeken / methoden';}
+function addMaterial(){
+  if(busy||goalSaving||noteSaving||chartSaving)return;
+  const added=materialList($('new-material').value);if(!added.length)return;
+  const value=[...new Set([...materialList($('materials').value),...added])].join(', ');
+  if(value.length>2000){$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}
+  $('materials').value=value;$('new-material').value='';$('material-error').hidden=true;renderMaterials();
+}
+$('add-material').addEventListener('click',addMaterial);
+$('new-material').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addMaterial();}});
 function render(){
   renderProgress();
   analyticsUI.setEntries(entries,loaded);
-  $('material-options').replaceChildren(...[...new Set(entries.flatMap(e=>materialList(e.materials)))].sort().map(value=>{const option=document.createElement('option');option.value=value;return option;}));
+  renderMaterials();
   $('entries').replaceChildren();$('total-count').textContent=entries.length;
   const groups=groupEntries(entries,filter);
   if (!groups.size){
@@ -163,13 +182,14 @@ $('goal-form').addEventListener('submit',async event=>{
 function startEdit(item){
   if(busy)return;editingId=item.id;pending=null;
   $('date').value=displayDate(item.date);$('subject').value=item.subject;$('minutes').value=item.minutes??'';$('materials').value=item.materials||'';
+  renderMaterials();$('new-material').value='';$('material-error').hidden=true;
   document.querySelectorAll('input[name="type"]').forEach(input=>input.checked=input.value===item.type);
   $('char-count').textContent=`${item.subject.length} / 2000`;$('entry-title').textContent='Studie-item bewerken';$('save').textContent='Wijzigingen opslaan';$('cancel-edit').hidden=false;
   $('entry-form').scrollIntoView({behavior:'smooth',block:'center'});$('subject').focus({preventScroll:true});updateConnection();
 }
 function finishEdit(clear=false){
   editingId=null;pending=null;$('entry-title').textContent='Nieuw studie-item';$('save').textContent='＋ Item opslaan';$('cancel-edit').hidden=true;
-  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=displayDate(localDate());$('char-count').textContent='0 / 2000';}
+  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=displayDate(localDate());$('char-count').textContent='0 / 2000';$('new-material').value='';$('materials-dropdown').open=false;$('material-error').hidden=true;renderMaterials();}
 }
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){

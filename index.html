@@ -7,9 +7,9 @@
   <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
   <title>Studielog · Mijn studiedagboek</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=16">
+  <link rel="stylesheet" href="./style.css?v=17">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=16"></script>
+  <script type="module" src="./app.js?v=17"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -33,7 +33,10 @@
           <label for="date">Datum</label><input type="text" placeholder="01-jan-2026" maxlength="11" pattern="[0-9]{2}-[A-Za-z]{3}-[0-9]{4}" title="Gebruik bijvoorbeeld 01-jan-2026" id="date" name="date" required>
           <fieldset><legend>Soort</legend><div class="type-options"><label class="type-option"><input type="radio" name="type" value="sessie" checked><span>Sessie<small>Zelf gestudeerd</small></span></label><label class="type-option"><input type="radio" name="type" value="les"><span>Les<small>Les gevolgd</small></span></label></div></fieldset>
           <label for="minutes">Minuten</label><input type="number" id="minutes" name="minutes" min="1" step="1" inputmode="numeric" placeholder="Bijvoorbeeld 30" required><p class="minutes-hint">Uren worden automatisch berekend.</p>
-          <label for="materials">Studieboeken / methoden (optioneel)</label><input id="materials" type="text" list="material-options" maxlength="2000" placeholder="Bijvoorbeeld: Tobira, Tobira H6"><datalist id="material-options"></datalist><p class="minutes-hint">Meerdere methoden? Scheid ze met een komma.</p>
+          <span id="materials-label" class="search-label">Studieboeken / methoden (optioneel)</span>
+          <input id="materials" type="hidden">
+          <details id="materials-dropdown" class="materials-dropdown"><summary id="materials-summary">Selecteer studieboeken / methoden</summary><div class="materials-menu"><div id="material-options" role="group" aria-labelledby="materials-label"></div><label for="new-material">Nieuwe methode toevoegen</label><div class="material-add"><input id="new-material" type="text" maxlength="2000" placeholder="Naam van studieboek of methode"><button id="add-material" type="button" class="button secondary">Toevoegen</button></div><p id="material-error" class="error" role="alert" hidden></p></div></details>
+          <p class="minutes-hint">Je kunt meerdere methoden aanvinken.</p>
           <label for="subject">Wat heb je gestudeerd?</label><textarea id="subject" name="subject" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: hoofdstuk 3 herhaald en kanji geoefend" required></textarea>
           <div class="field-hint" style="justify-content:flex-end"><span id="char-count">0 / 2000</span></div>
           <button class="button primary" id="save" type="submit" disabled><span aria-hidden="true">＋</span> Item opslaan</button>

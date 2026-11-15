@@ -1,7 +1,8 @@
 import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=5';
 import {studyProgress,validGoal} from './progress.js?v=5';
-import {GoalsStore} from './goals.js?v=5';
+import {GoalsStore} from './goals.js?v=6';
+import {goalSchedule} from './goal-schedule.js?v=6';
 import {NotesUI} from './notes-ui.js?v=5';
 import {restoreSession,saveSession,clearSession} from './auth-session.js?v=2';
 const $=id=>document.getElementById(id);
@@ -44,6 +45,7 @@ function updateConnection(){
   $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=locked);
   $('goal-hours').disabled=!connected || busy || goalSaving;
   $('goal-name').disabled=!connected || locked;
+  $('goal-start').disabled=!connected||locked;$('goal-deadline').disabled=!connected||locked;
   $('save-goal').disabled=!connected || busy || goalSaving;
   $('new-goal').disabled=!connected || locked || !goalLoaded;
   document.querySelectorAll('[data-goal-action]').forEach(button=>button.disabled=!connected || locked || !goalLoaded);
@@ -78,8 +80,11 @@ function renderProgress(){
   renderGoalControls();
 }
 function makeGoalCard(item){
-  const progress=studyProgress(entries,item.hours),article=node('article','goal-card');
+  const progress=goalSchedule(entries,item),article=node('article','goal-card');
   article.append(node('h3','goal-card-title',item.name));
+  article.append(node('p','goal-status',progress.scheduled?`Start op ${dateFormatter.format(new Date(item.startDate+'T12:00:00'))}`:'Live'));
+  if(item.deadline){article.append(node('p','goal-dates',`Deadline: ${dateFormatter.format(new Date(item.deadline+'T12:00:00'))}`));
+    article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));}
   const ring=node('div','hours-ring');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(item.hours)} uur, ${hoursFormatter.format(progress.percentage)} procent.`);
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 176 176');svg.setAttribute('aria-hidden','true');
   for(const className of ['ring-track','ring-value']){const circle=document.createElementNS('http://www.w3.org/2000/svg','circle');for(const [key,value] of Object.entries({cx:'88',cy:'88',r:'73',class:className,pathLength:'100'}))circle.setAttribute(key,value);if(className==='ring-value')circle.setAttribute('stroke-dasharray',`${progress.ratio*100} 100`);svg.append(circle);}
@@ -114,6 +119,7 @@ async function refreshGoal(){
 }
 function openGoalEditor(item=null){
   if(busy||goalSaving||!goalLoaded)return;
+  $('goal-start').value=item?.startDate||'';$('goal-deadline').value=item?.deadline||'';
   editingGoalId=item?.id||null;pendingGoalId=item?.id||crypto.randomUUID();$('goal-name').value=item?.name||'';$('goal-hours').value=item?.hours??'';$('goal-editor-title').textContent=item?'Doel wijzigen':'Nieuw doel';$('goal-editor-error').hidden=true;$('goal-editor').showModal();
 }
 function openGoalDelete(item){if(busy||goalSaving)return;deletingGoalId=item.id;$('goal-delete-name').textContent=item.name;$('goal-delete-dialog').showModal();}
@@ -124,7 +130,7 @@ async function mutateGoal(action,message,selectId=null){
   finally{goalSaving=false;updateConnection();}
 }
 async function changeGoalStatus(item,status){
-  const hours=studyProgress(entries,null).hours;
+  const hours=goalSchedule(entries,item).hours;
   await mutateGoal(()=>goalsStore.setStatus(item.id,status,hours),status==='gearchiveerd'?'Doel gearchiveerd.':'Doel teruggezet.',status==='actief'?item.id:null);
 }
 $('new-goal').addEventListener('click',()=>openGoalEditor());
@@ -136,7 +142,7 @@ $('goal-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||goalSaving)return;
   const value=Number($('goal-hours').value),name=$('goal-name').value.trim();
   if(!validGoal(value)||!name||name.length>100){$('goal-editor-error').textContent='Vul een naam en een urendoel groter dan 0 in.';$('goal-editor-error').hidden=false;return;}
-  const item={id:pendingGoalId,name,hours:value};$('save-goal').textContent='Opslaan…';
+  const item={id:pendingGoalId,name,hours:value,startDate:$('goal-start').value,deadline:$('goal-deadline').value};$('save-goal').textContent='Opslaan…';
   const success=await mutateGoal(()=>editingGoalId?goalsStore.update(item):goalsStore.create(item),'Doel opgeslagen.',editingGoalId&&goals.find(goal=>goal.id===editingGoalId)?.status==='gearchiveerd'?null:item.id);
   $('save-goal').textContent='Doel opslaan';if(success){$('goal-editor').close();editingGoalId=null;pendingGoalId=null;}
 });
@@ -213,3 +219,7 @@ $('notes-tab').addEventListener('click',()=>showPage('notes'));
 showPage(location.hash==='#notities'?'notes':'overview');
 updateConnection();
 if(previousSession){notify('Google-verbinding hersteld. Je studieoverzicht wordt geladen…');refresh(false).then(()=>{if(loaded)notify('Google-verbinding hersteld. Je studieoverzicht is bijgewerkt.');});}
+
+let renderedDay=localDate();
+function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;renderProgress();}}
+setInterval(refreshDay,30000);window.addEventListener('focus',refreshDay);document.addEventListener('visibilitychange',refreshDay);

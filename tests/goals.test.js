@@ -8,7 +8,7 @@ function backend(){
     if(!options.method)return{values:rows.map(row=>[...row])};
     const body=JSON.parse(options.body);
     if(path.includes(':append'))rows.push(...body.values);
-    else{const match=decodeURIComponent(path).match(/!A(\d+):H/);assert.ok(match);rows[Number(match[1])-1]=body.values[0];}
+    else{const match=decodeURIComponent(path).match(/!A(\d+):J/);assert.ok(match);rows[Number(match[1])-1]=body.values[0];}
     return{};
   }};
   return{rows,calls,store:new GoalsStore(sheets,()=> '2026-11-15T14:00:00Z')};
@@ -32,6 +32,13 @@ test('archive freezes hours, restoring reactivates, removing never touches study
 test('sorting and blank rows do not misdirect goal updates',async()=>{
   const {store,rows}=backend();rows.push([]);rows.push(rows.splice(1,1)[0]);
   await store.update({id:'initial',name:'Correcte rij',hours:123});assert.deepEqual(rows[1],[]);assert.equal(rows[2][1],'Correcte rij');
+});
+test('schedule dates survive reload and archive and can be cleared',async()=>{
+ const {store,rows}=backend();
+ await store.update({id:'initial',name:'Planning',hours:20,startDate:'2026-11-20',deadline:'2026-12-01'});
+ let [goal]=await store.read();assert.equal(goal.startDate,'2026-11-20');assert.equal(goal.deadline,'2026-12-01');
+ await store.setStatus(goal.id,'gearchiveerd',0);assert.deepEqual(rows[1].slice(8),['2026-11-20','2026-12-01']);
+ await store.update({...goal,startDate:'',deadline:''});[goal]=await store.read();assert.equal(goal.startDate,'');assert.equal(goal.deadline,'');
 });
 test('bad names, hours, missing IDs and duplicate IDs block writes',async()=>{
   const {store,rows}=backend();

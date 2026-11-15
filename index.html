@@ -19,7 +19,7 @@
   </header>
   <main id="main">
     <section class="intro">
-      <div><p class="eyebrow">ELKE DAG EEN BEETJE VERDER</p><h1>Wat heb je geleerd?</h1><p class="intro-copy">Een plek voor je lessen, je sessies en alles wat je bijblijft.</p></div>
+      <div><p class="eyebrow">ELKE DAG EEN BEETJE VERDER</p><h1>Wat heb je geleerd?</h1></div>
       <span id="today-label" class="today"></span>
     </section>
     <section class="connection" aria-label="Google Sheets-verbinding">
@@ -29,13 +29,13 @@
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <div class="workspace">
       <section class="entry-card" aria-labelledby="entry-title">
-        <p class="eyebrow">EVEN VASTLEGGEN</p><h2 id="entry-title">Nieuw studie-item</h2>
+        <h2 id="entry-title">Nieuw studie-item</h2>
         <form id="entry-form">
           <label for="date">Datum</label><input type="date" id="date" name="date" required>
           <fieldset><legend>Soort</legend><div class="type-options"><label class="type-option"><input type="radio" name="type" value="sessie" checked><span>Sessie<small>Zelf gestudeerd</small></span></label><label class="type-option"><input type="radio" name="type" value="les"><span>Les<small>Les gevolgd</small></span></label></div></fieldset>
           <label for="minutes">Minuten</label><input type="number" id="minutes" name="minutes" min="1" step="1" inputmode="numeric" placeholder="Bijvoorbeeld 30" required><p class="minutes-hint">Uren worden automatisch berekend.</p>
           <label for="subject">Wat heb je gestudeerd?</label><textarea id="subject" name="subject" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: hoofdstuk 3 herhaald en kanji geoefend" required></textarea>
-          <div class="field-hint"><span>Groot of klein: het telt allemaal mee.</span><span id="char-count">0 / 2000</span></div>
+          <div class="field-hint" style="justify-content:flex-end"><span id="char-count">0 / 2000</span></div>
           <button class="button primary" id="save" type="submit" disabled><span aria-hidden="true">＋</span> Item opslaan</button>
           <button class="text-button cancel-edit" id="cancel-edit" type="button" hidden>Bewerken annuleren</button>
           <p class="save-hint" id="save-hint">Verbind eerst met Google om op te slaan.</p>

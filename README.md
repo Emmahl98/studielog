@@ -2,7 +2,11 @@
 
 Een eenvoudig Nederlands studiedagboek. Voeg meerdere items per dag toe, kies **sessie** of **les**, vul de minuten in en bekijk je geschiedenis per dag. Met **Bewerken** pas je later de datum, soort, beschrijving en minuten aan. Werkt op mobiel en desktop.
 
-Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar urendoel. De uren worden berekend uit de minuten van alle lessen en sessies, onafhankelijk van het gekozen filter. Het doel wordt bewaard in `Instellingen!B2` van dezelfde spreadsheet, met `Instelling` en `Waarde` als kolomkoppen en `Urendoel` in A2. Zonder ingesteld doel blijft de ring leeg. Bij het overschrijden van het doel blijft de ring volledig gevuld en toont de tekst het werkelijke percentage.
+Bovenaan toont een ringdiagram alle gemaakte uren tegenover een zelf instelbaar urendoel. Maak doelen met een naam en een aantal uren en kies het actieve doel in de keuzelijst. **Wijzigen** past naam en uren aan. **Archiveren** bewaart het doel en de gemaakte uren op dat moment in het archief. **Terugzetten** maakt een gearchiveerd doel weer actief. **Verwijderen** vraagt bevestiging en haalt alleen het doel uit de interface. Studie-items blijven altijd behouden. Verwijderde doelen krijgen in de Sheet de status `verwijderd` en kunnen daar zo nodig worden hersteld.
+
+Doelen staan in het tabblad `Doelen`, met kolommen ID, Naam, Doeluren, Status, Aangemaakt, Bijgewerkt, Gearchiveerd op en Uren bij archiveren. Het oorspronkelijke doel uit `Instellingen!B2` is eenmalig overgenomen als ‘Mijn urendoel’. De oude instelling blijft bewaard voor de eerdere websiteversie, maar wordt door de nieuwe interface niet gebruikt.
+
+De uren worden berekend uit de minuten van alle lessen en sessies, onafhankelijk van het gekozen filter. Elk actief doel gebruikt hetzelfde totaal aan gemaakte uren. Zonder actief doel blijft de ring leeg. Bij het overschrijden van het doel blijft de ring volledig gevuld en toont de tekst het werkelijke percentage.
 
 ## Website
 

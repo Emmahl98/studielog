@@ -1,10 +1,12 @@
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=3';
-import {studyProgress,validGoal} from './progress.js?v=3';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=4';
+import {studyProgress,validGoal} from './progress.js?v=4';
+import {GoalsStore} from './goals.js?v=4';
 import {restoreSession,saveSession,clearSession} from './auth-session.js?v=2';
 const $=id=>document.getElementById(id);
 let token='', expiresAt=0, entries=[], filter='all', busy=false, loaded=false, pending=null, editingId=null;
 let goal=null,goalLoaded=false,goalSaving=false;
+let goals=[],selectedGoalId='',editingGoalId=null,pendingGoalId=null,deletingGoalId=null;
 const hoursFormatter=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 const storageKey='studielog.google-client-id';
 const readClientId=()=>{ try {return localStorage.getItem(storageKey)||config.clientId;} catch{return config.clientId;} };
@@ -14,6 +16,7 @@ try{sessionStorageAvailable=window.sessionStorage;}catch{/* Use in-memory sign-i
 const previousSession=restoreSession(sessionStorageAvailable,clientId);
 if(previousSession){token=previousSession.token;expiresAt=previousSession.expiresAt;}
 const store=new SheetsStore(config,()=>Date.now()<expiresAt ? token : '');
+const goalsStore=new GoalsStore(store);
 const dateFormatter=new Intl.DateTimeFormat('nl-NL',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 $('date').value=localDate();
 $('today-label').textContent=new Intl.DateTimeFormat('nl-NL',{day:'numeric',month:'long',year:'numeric'}).format(new Date());
@@ -37,7 +40,14 @@ function updateConnection(){
   document.querySelectorAll('.edit-entry').forEach(button=>button.disabled=locked || !connected || button.dataset.editable!=='true');
   $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=locked);
   $('goal-hours').disabled=!connected || busy || goalSaving;
+  $('goal-name').disabled=!connected || locked;
   $('save-goal').disabled=!connected || busy || goalSaving;
+  $('new-goal').disabled=!connected || locked || !goalLoaded;
+  $('goal-select').disabled=!connected || locked || !goalLoaded || !goals.some(item=>item.status==='actief');
+  document.querySelectorAll('[data-goal-action]').forEach(button=>button.disabled=!connected || locked || !goalLoaded);
+  $('close-goal-editor').disabled=locked;
+  $('confirm-delete-goal').disabled=locked;
+  $('cancel-delete-goal').disabled=locked;
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
@@ -62,29 +72,76 @@ function render(){
   }
 }
 function renderProgress(){
+  renderGoalControls();
   const progress=studyProgress(entries,goal);
   $('hours-total').textContent=loaded?hoursFormatter.format(progress.hours):'—';
   $('ring-value').setAttribute('stroke-dasharray',`${loaded?progress.ratio*100:0} 100`);
   if(!loaded){$('goal-summary').textContent='Verbind met Google om je voortgang te zien.';$('goal-remaining').textContent='';$('hours-ring').setAttribute('aria-label','Verbind met Google om je gemaakte uren te zien.');return;}
-  if(progress.goal===null){$('goal-summary').textContent=goalLoaded?'Vul je urendoel in om je voortgang te bekijken.':'Je urendoel is nog niet geladen.';$('goal-remaining').textContent='';$('hours-ring').setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} uur gemaakt. Geen urendoel ingesteld.`);return;}
+  if(progress.goal===null){$('goal-summary').textContent=goalLoaded?'Maak een doel aan om je voortgang te bekijken.':'Je doelen zijn nog niet geladen.';$('goal-remaining').textContent='';$('hours-ring').setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} uur gemaakt. Geen actief doel ingesteld.`);return;}
   const percent=hoursFormatter.format(progress.percentage);
   $('goal-summary').textContent=`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(progress.goal)} uur · ${percent}%`;
   $('goal-remaining').textContent=progress.remaining>0?`Nog ${hoursFormatter.format(progress.remaining)} uur tot je doel.`:'Doel behaald.';
   $('hours-ring').setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(progress.goal)} uur gemaakt, ${percent} procent.`);
 }
+function renderGoalControls(){
+  if(!goalLoaded){goals=[];selectedGoalId='';}
+  const active=goals.filter(item=>item.status==='actief');
+  const selected=active.find(item=>item.id===selectedGoalId)||active[0];
+  selectedGoalId=selected?.id||'';goal=selected?.hours??null;
+  $('progress-title').textContent=selected?.name||'Mijn doelen';
+  $('goal-select').replaceChildren();
+  if(!active.length){const option=node('option','','Geen actief doel');option.value='';$('goal-select').append(option);}
+  for(const item of active){const option=node('option','',item.name);option.value=item.id;$('goal-select').append(option);}
+  $('goal-select').value=selectedGoalId;$('selected-goal-actions').hidden=!selected;
+  const archived=goals.filter(item=>item.status==='gearchiveerd');
+  $('goal-archive-title').textContent=`Archief (${archived.length})`;$('archived-goals').replaceChildren();
+  if(!archived.length)$('archived-goals').append(node('p','goal-feedback','Geen gearchiveerde doelen.'));
+  for(const item of archived){
+    const article=node('article','archived-goal');article.append(node('strong','',item.name),node('p','goal-feedback',item.archivedHours===null?`Doel: ${hoursFormatter.format(item.hours)} uur`:`${hoursFormatter.format(item.archivedHours)} van ${hoursFormatter.format(item.hours)} uur bij archiveren`));
+    const actions=node('div','goal-actions');
+    for(const [label,action] of [['Terugzetten',()=>changeGoalStatus(item,'actief')],['Wijzigen',()=>openGoalEditor(item)],['Verwijderen',()=>openGoalDelete(item)]]){
+      const button=node('button',`text-button${label==='Verwijderen'?' danger':''}`,label);button.type='button';button.dataset.goalAction='';button.setAttribute('aria-label',`${label}: ${item.name}`);button.addEventListener('click',action);actions.append(button);
+    }
+    article.append(actions);$('archived-goals').append(article);
+  }
+  updateConnection();
+}
 async function refreshGoal(){
-  try{goal=await store.readGoal();goalLoaded=true;if(document.activeElement!==$('goal-hours'))$('goal-hours').value=goal??'';$('goal-feedback').textContent='Je doel wordt in Google Sheets bewaard.';$('goal-feedback').classList.remove('error');}
-  catch(error){goalLoaded=false;goal=null;$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
+  try{goals=await goalsStore.read();goalLoaded=true;$('goal-feedback').textContent='Je doelen worden in Google Sheets bewaard.';$('goal-feedback').classList.remove('error');}
+  catch(error){goalLoaded=false;goal=null;goals=[];$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
   renderProgress();
 }
+function openGoalEditor(item=null){
+  if(busy||goalSaving||!goalLoaded)return;
+  editingGoalId=item?.id||null;pendingGoalId=item?.id||crypto.randomUUID();$('goal-name').value=item?.name||'';$('goal-hours').value=item?.hours??'';$('goal-editor-title').textContent=item?'Doel wijzigen':'Nieuw doel';$('goal-editor-error').hidden=true;$('goal-editor').showModal();
+}
+function openGoalDelete(item){if(busy||goalSaving)return;deletingGoalId=item.id;$('goal-delete-name').textContent=item.name;$('goal-delete-dialog').showModal();}
+async function mutateGoal(action,message,selectId=null){
+  if(busy||goalSaving)return false;goalSaving=true;updateConnection();
+  try{await action();if(selectId)selectedGoalId=selectId;goals=await goalsStore.read();goalLoaded=true;renderProgress();$('goal-feedback').textContent=message;$('goal-feedback').classList.remove('error');return true;}
+  catch(error){$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');if($('goal-editor').open){$('goal-editor-error').textContent=error.message;$('goal-editor-error').hidden=false;}return false;}
+  finally{goalSaving=false;updateConnection();}
+}
+async function changeGoalStatus(item,status){
+  const hours=studyProgress(entries,null).hours;
+  await mutateGoal(()=>goalsStore.setStatus(item.id,status,hours),status==='gearchiveerd'?'Doel gearchiveerd.':'Doel teruggezet.',status==='actief'?item.id:null);
+}
+$('goal-select').addEventListener('change',()=>{selectedGoalId=$('goal-select').value;renderProgress();});
+$('new-goal').addEventListener('click',()=>openGoalEditor());
+$('edit-goal').addEventListener('click',()=>{const item=goals.find(item=>item.id===selectedGoalId);if(item)openGoalEditor(item);});
+$('archive-goal').addEventListener('click',()=>{const item=goals.find(item=>item.id===selectedGoalId);if(item)changeGoalStatus(item,'gearchiveerd');});
+$('delete-goal').addEventListener('click',()=>{const item=goals.find(item=>item.id===selectedGoalId);if(item)openGoalDelete(item);});
+$('close-goal-editor').addEventListener('click',()=>$('goal-editor').close());
+$('cancel-delete-goal').addEventListener('click',()=>$('goal-delete-dialog').close());
+for(const id of ['goal-editor','goal-delete-dialog'])$(id).addEventListener('cancel',event=>{if(goalSaving)event.preventDefault();});
+$('confirm-delete-goal').addEventListener('click',async()=>{if(!deletingGoalId)return;const id=deletingGoalId;if(await mutateGoal(()=>goalsStore.setStatus(id,'verwijderd'),'Doel verwijderd. Je studie-items zijn behouden.')){$('goal-delete-dialog').close();deletingGoalId=null;}});
 $('goal-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy||goalSaving)return;
-  const value=Number($('goal-hours').value);
-  if(!validGoal(value)){$('goal-feedback').textContent='Vul een urendoel groter dan 0 in.';$('goal-feedback').classList.add('error');return;}
-  goalSaving=true;updateConnection();$('save-goal').textContent='Opslaan…';
-  try{await store.saveGoal(value);goal=value;goalLoaded=true;renderProgress();$('goal-feedback').textContent='Urendoel opgeslagen in Google Sheets.';$('goal-feedback').classList.remove('error');}
-  catch(error){$('goal-feedback').textContent=error.message;$('goal-feedback').classList.add('error');}
-  finally{goalSaving=false;$('save-goal').textContent='Doel opslaan';updateConnection();}
+  const value=Number($('goal-hours').value),name=$('goal-name').value.trim();
+  if(!validGoal(value)||!name||name.length>100){$('goal-editor-error').textContent='Vul een naam en een urendoel groter dan 0 in.';$('goal-editor-error').hidden=false;return;}
+  const item={id:pendingGoalId,name,hours:value};$('save-goal').textContent='Opslaan…';
+  const success=await mutateGoal(()=>editingGoalId?goalsStore.update(item):goalsStore.create(item),'Doel opgeslagen.',editingGoalId&&goals.find(goal=>goal.id===editingGoalId)?.status==='gearchiveerd'?null:item.id);
+  $('save-goal').textContent='Doel opslaan';if(success){$('goal-editor').close();editingGoalId=null;pendingGoalId=null;}
 });
 function startEdit(item){
   if(busy)return;editingId=item.id;pending=null;

@@ -1,4 +1,4 @@
-import {AnalyticsUI} from './analytics-ui.js?v=11';
+import {AnalyticsUI} from './analytics-ui.js?v=12';
 import {materialList} from './materials.js';
 import {config} from './config.js';
 import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=9';

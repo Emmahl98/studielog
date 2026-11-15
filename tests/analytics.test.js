@@ -18,11 +18,21 @@ test('Notion material labels normalize without losing chapters or unrelated name
  assert.deepEqual(materialList('H6【とびら】 (https://app.notion.com/p/abc), 上級へのとびら (https://app.notion.com/p/book), H5【とびら】, VOCAB N3, Tobira H6'),['Tobira H6','Tobira','Tobira H5','VOCAB N3']);
 });
 test('chart settings survive edits, retries and soft deletion in their own sheet',async()=>{
- const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){assert.ok(decodeURIComponent(path).includes("'Grafieken'!"));if(!options)return{values:rows};const values=JSON.parse(options.body).values;if(options.method==='POST')rows.push(...values);else rows[Number(decodeURIComponent(path).match(/!A(\d+):I/)[1])-1]=values[0];return{};}});
+ const rows=[CHART_HEADERS];const store=new ChartStore({async request(path,options){assert.ok(decodeURIComponent(path).includes("'Grafieken'!"));if(!options)return{values:rows};const values=JSON.parse(options.body).values;if(options.method==='POST')rows.push(...values);else rows[Number(decodeURIComponent(path).match(/!A(\d+):J/)[1])-1]=values[0];return{};}});
  await store.save(config);await store.save(config);assert.equal(rows.length,2);await store.save({...config,name:'=Literal',period:'7',view:'line'});assert.equal((await store.read())[0].name,'=Literal');await store.remove(config.id);assert.equal((await store.read())[0].status,'verwijderd');await assert.rejects(()=>store.save(config),/verwijderd/);
 });
 
 test('today period only counts today and is a valid chart option',()=>{
  const chart={...config,period:'1'};validateChart(chart);
  const data=chartData(entries,chart,'2026-11-15');assert.equal(data.hours,.5);assert.equal(data.points.length,1);assert.equal(data.from,'2026-11-15');assert.equal(data.to,'2026-11-15');
+});
+
+test('chart sorting supports dates, natural textbook names and hours in both directions',()=>{
+ const dates=chartData(entries,{...config,sort:'label-desc'},'2026-11-15');assert.deepEqual(dates.points.map(p=>p.label),['2026-11-15','2026-11-14','2026-11-13']);
+ const books=[{date:'2026-11-15',minutes:20,materials:'Tobira H10'},{date:'2026-11-15',minutes:40,materials:'Tobira H2'}];
+ const chart={...config,group:'method'};
+ assert.deepEqual(chartData(books,{...chart,sort:'label-asc'},'2026-11-15').points.map(p=>p.label),['Tobira H2','Tobira H10']);
+ assert.equal(chartData(books,{...chart,sort:'label-desc'},'2026-11-15').points[0].label,'Tobira H10');
+ assert.equal(chartData(books,{...chart,sort:'hours-asc'},'2026-11-15').points[0].label,'Tobira H10');
+ assert.equal(chartData(books,{...chart,sort:'hours-desc'},'2026-11-15').points[0].label,'Tobira H2');
 });

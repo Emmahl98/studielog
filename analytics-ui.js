@@ -1,4 +1,4 @@
-import {ChartStore,chartData} from './analytics.js?v=11';
+import {ChartStore,chartData} from './analytics.js?v=12';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
@@ -17,10 +17,10 @@ export class AnalyticsUI{
  reset(){this.charts=[];this.loaded=false;this.entries=[];this.studyLoaded=false;for(const id of ['chart-dialog','chart-delete-dialog'])if($(id).open)$(id).close();this.render();this.message('Je grafieken worden in Google Sheets bewaard.');}
  async refresh(){try{this.charts=await this.store.read();this.loaded=true;this.render();}catch(e){this.charts=[];this.loaded=false;this.render();this.message(e.message,true);}}
  methods(){return [...new Set(this.entries.flatMap(e=>materialList(e.materials)))].sort((a,b)=>a.localeCompare(b,'nl'));}
- edit(chart=null){if(!this.canMutate()||!this.loaded)return;this.id=chart?.id||crypto.randomUUID();$('chart-editor-title').textContent=chart?'Grafiek wijzigen':'Nieuwe grafiek';$('chart-name').value=chart?.name||'';$('chart-period').value=chart?.period||'7';$('chart-group').value=chart?.group||'day';$('chart-view').value=chart?.view||'bar';$('chart-from').value=chart?.from||'';$('chart-to').value=chart?.to||'';
+ edit(chart=null){if(!this.canMutate()||!this.loaded)return;this.id=chart?.id||crypto.randomUUID();$('chart-editor-title').textContent=chart?'Grafiek wijzigen':'Nieuwe grafiek';$('chart-name').value=chart?.name||'';$('chart-period').value=chart?.period||'7';$('chart-group').value=chart?.group||'day';$('chart-view').value=chart?.view||'bar';$('chart-sort').value=chart?.sort||'';$('chart-from').value=chart?.from||'';$('chart-to').value=chart?.to||'';
   $('chart-method').replaceChildren(new Option('Alle methoden',''),...this.methods().map(m=>new Option(m,m)));if(chart?.method&&!this.methods().includes(chart.method))$('chart-method').append(new Option(chart.method,chart.method));$('chart-method').value=chart?.method||'';$('chart-error').hidden=true;this.dates();$('chart-dialog').showModal();}
  async mutate(action,message){if(!this.canMutate()||!this.loaded)return false;this.saving=true;this.setBusy(true);try{await action();this.charts=await this.store.read();this.render();this.message(message);return true;}catch(e){this.message(e.message,true);$('chart-error').textContent=e.message;$('chart-error').hidden=false;return false;}finally{this.saving=false;this.setBusy(false);}}
- async save(){const c={id:this.id,name:$('chart-name').value,period:$('chart-period').value,group:$('chart-group').value,view:$('chart-view').value,method:$('chart-method').value,from:$('chart-from').value,to:$('chart-to').value};if(await this.mutate(()=>this.store.save(c),'Grafiek opgeslagen.'))$('chart-dialog').close();}
+ async save(){const c={id:this.id,name:$('chart-name').value,period:$('chart-period').value,group:$('chart-group').value,view:$('chart-view').value,sort:$('chart-sort').value,method:$('chart-method').value,from:$('chart-from').value,to:$('chart-to').value};if(await this.mutate(()=>this.store.save(c),'Grafiek opgeslagen.'))$('chart-dialog').close();}
  render(){
   const list=$('data-charts');list.replaceChildren();const charts=this.charts.filter(c=>c.status==='actief');
   if(!this.studyLoaded){list.append(node('p','notes-empty','Verbind met Google om je studiedata te bekijken.'));return;}

@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {HEADERS,validDate,groupEntries,parseRows,SheetsStore} from '../data.js';
+test('browser fetch is called without binding it to the store',async()=>{
+  let receiver;
+  const store=new SheetsStore({spreadsheetId:'test',sheetName:'Sheet1'},()=> 'token',async function(){receiver=this;return{ok:true,json:async()=>({values:[HEADERS]})};});
+  await store.read();
+  assert.equal(receiver,undefined);
+});
 test('calendar dates and multiple entries per day',()=>{
   assert.equal(validDate('2026-02-30'),false);assert.equal(validDate('2028-02-29'),true);
   const rows=parseRows([['2026-11-15','sessie','Kanji','1','2026-11-15T10:00:00Z'],['2026-11-15','les','Grammatica','2','2026-11-15T12:00:00Z'],['2026-11-14','les','Lezen','3',''],['wrong','les','x']]);

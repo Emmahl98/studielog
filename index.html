@@ -9,7 +9,7 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./style.css?v=19">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=19"></script>
+  <script type="module" src="./app.js?v=20"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -25,6 +25,18 @@
     <nav class="page-tabs" aria-label="Pagina kiezen"><button type="button" id="overview-tab" aria-pressed="true">Studieoverzicht</button><button type="button" id="notes-tab" aria-pressed="false">Studienotities</button><button type="button" id="data-tab" aria-pressed="false">Data</button></nav>
 
 
+    <details class="entry-card" style="margin-bottom:24px"><summary>Anki koppelen</summary>
+      <p>Neem dagelijks je Anki-herhalingen en geregistreerde studietijd over als sessie met methode Anki. De laatste 30 kalenderdagen worden bijgewerkt; oudere items blijven bewaard. Alle decks uit één Anki-profiel tellen mee. De datum volgt de kalender op deze pc, vanaf middernacht.</p>
+      <p>Open Anki op deze pc en synchroniseer met AnkiWeb om je telefoonactiviteit mee te nemen. Open ook de tracker en verbind met Google. De koppeling werkt elke vijf minuten terwijl deze pagina zichtbaar is en bij terugkeer naar dit venster. Bij verlopen Google-toegang moet je opnieuw verbinden.</p>
+      <details><summary>Eenmalig AnkiConnect instellen</summary><ol>
+        <li>Ga in Anki naar Extra → Add-ons → Add-ons downloaden. Gebruik code <strong>2055492159</strong> en herstart Anki.</li>
+        <li>Open de configuratie van AnkiConnect. Voeg <code>https://emmahl98.github.io</code> toe aan <code>webCorsOriginList</code> en behoud de bestaande waarden. Herstart Anki. Gebruik bij lokaal testen de origin van die lokale website.</li>
+        <li>Sta toegang tot het lokale netwerk toe als je browser daarom vraagt. Klik hieronder op Nu bijwerken.</li>
+      </ol><p>De minuten zijn de door Anki geregistreerde antwoordtijd, afgerond op hele minuten. Pauzes tellen niet mee. Bestaande handmatige Anki-sessies worden niet automatisch samengevoegd; controleer overlap om dubbel tellen te voorkomen. Automatische dagitems worden bij elke synchronisatie opnieuw berekend.</p></details>
+      <label class="chart-goal-toggle"><input type="checkbox" id="anki-enabled"> Automatisch bijwerken op deze pc</label>
+      <button type="button" id="anki-sync" class="button secondary">Nu bijwerken</button>
+      <p id="anki-status" class="goal-feedback" role="status" aria-live="polite">Nog niet verbonden met Anki.</p>
+    </details>
     <p id="notice" class="notice" role="status" aria-live="polite" hidden></p>
     <div class="workspace" data-overview-panel>
       <section class="entry-card" aria-labelledby="entry-title">

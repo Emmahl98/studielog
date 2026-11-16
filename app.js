@@ -3,7 +3,7 @@ import {AnalyticsUI} from './analytics-ui.js?v=18';
 import {WeightsUI} from './weights-ui.js?v=18';
 import {materialList} from './materials.js';
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=18';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=19';
 import {studyProgress,validGoal} from './progress.js?v=5';
 import {GoalsStore} from './goals.js?v=13';
 import {goalSchedule} from './goal-schedule.js?v=8';
@@ -96,9 +96,18 @@ function render(){
     const heading=node('h3');
     const time=node('time','',displayDate(date));time.dateTime=date;heading.append(time);header.append(heading,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
     for(const item of items){
-      const article=node('article','entry');const body=node('div','entry-body');body.append(node('p','',item.subject));
+      const article=node('article','entry');const body=node('div','entry-body');
+      const toggle=node('button','entry-details-toggle',item.subject);toggle.type='button';toggle.setAttribute('aria-expanded','false');body.append(toggle);
       if(item.materials)body.append(node('p','entry-materials',item.weights?materialList(item.materials).map(m=>`${m} (${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2}).format(item.weights[m])}%)`).join(', '):item.materials));
       body.append(node('span','entry-duration',item.minutes===null?'Duur niet ingevuld':`${new Intl.NumberFormat('nl-NL').format(item.minutes)} min`));
+      const created=node('p','entry-created');created.hidden=true;
+      const createdDate=item.createdAt?new Date(item.createdAt):null;
+      if(createdDate&&!Number.isNaN(createdDate.getTime())){
+        created.append(document.createTextNode('Aangemaakt op '));
+        const time=node('time','',new Intl.DateTimeFormat('nl-NL',{dateStyle:'long',timeStyle:'medium'}).format(createdDate));time.dateTime=createdDate.toISOString();created.append(time);
+      }else created.textContent='Aanmaaktijdstip niet beschikbaar';
+      body.append(created);
+      article.addEventListener('click',event=>{if(event.target.closest('.edit-entry'))return;created.hidden=!created.hidden;toggle.setAttribute('aria-expanded',String(!created.hidden));});
       const edit=node('button','text-button edit-entry','Bewerken');edit.type='button';edit.dataset.editable=String(!!item.id);edit.setAttribute('aria-label',`Bewerken: ${item.subject}`);edit.disabled=busy || !item.id;edit.addEventListener('click',()=>startEdit(item));
       article.append(node('span',`badge ${item.type}`,item.type),body,edit);section.append(article);
     }
@@ -233,7 +242,7 @@ $('entry-form').addEventListener('submit',async event=>{
   const date=inputDate($('date').value),type=new FormData(event.currentTarget).get('type'),subject=$('subject').value.trim(),minutes=Number($('minutes').value),materials=materialList($('materials').value).join(', ');
   let weights;try{weights=weightsUI.value();if(materialList(materials).some(m=>/^tobira$/i.test(m)))throw Error('Kies voor Tobira een hoofdstuk, bijvoorbeeld Tobira H1.');}catch(error){notify(error.message,true);return;}
   if(!subject){notify('Beschrijf kort wat je hebt gestudeerd.',true);$('subject').focus();return;}
-  if(!validMinutes(minutes)){notify('Vul een heel aantal minuten groter dan 0 in.',true);$('minutes').focus();return;}
+  if(!$('minutes').value.trim()||!validMinutes(minutes)){notify('Vul een heel aantal minuten van 0 of meer in.',true);$('minutes').focus();return;}
   if(!pending || pending.date!==date || pending.type!==type || pending.subject!==subject || pending.minutes!==minutes || pending.materials!==materials || JSON.stringify(pending.weights)!==JSON.stringify(weights))pending={date,type,subject,minutes,materials,weights,id:editingId||crypto.randomUUID(),createdAt:entries.find(item=>item.id===editingId)?.createdAt||new Date().toISOString()};
   busy=true;updateConnection();$('save').textContent='Opslaan…';
   let saved=false;

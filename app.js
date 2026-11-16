@@ -1,4 +1,5 @@
-import {AnkiConnect,syncAnki} from './anki.js?v=1';
+import {AnkiMappingUI} from './anki-mapping-ui.js?v=1';
+import {AnkiConnect,syncAnki} from './anki.js?v=2';
 import {displayDate,inputDate} from './dates.js?v=14';
 import {AnalyticsUI} from './analytics-ui.js?v=18';
 import {WeightsUI} from './weights-ui.js?v=18';
@@ -30,6 +31,13 @@ const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updat
 
 const anki=new AnkiConnect();
 const ankiKey='studielog.anki-enabled';
+const ankiMappingUI=new AnkiMappingUI(store,anki,{
+  canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving,
+  entries:()=>entries,
+  setBusy:value=>{chartSaving=value;updateConnection();},
+  checkProfile:profile=>{if(typeof profile!=='string'||!profile||(ankiProfile&&ankiProfile!==profile))throw Error('Open het gekoppelde Anki-profiel.');},
+  afterSave:()=>refreshAnki(true)
+});
 let ankiEnabled=false,ankiProfile='',ankiFromDate='';
 try{ankiEnabled=localStorage.getItem(ankiKey)==='true';ankiProfile=localStorage.getItem('studielog.anki-profile')||'';ankiFromDate=localStorage.getItem('studielog.anki-from-date')||'';}catch{}
 if($('anki-enabled'))$('anki-enabled').checked=ankiEnabled;
@@ -45,7 +53,8 @@ async function refreshAnki(manual=false){
     if(ankiProfile&&ankiProfile!==profile)throw new Error(`Open Anki-profiel “${ankiProfile}”. Het huidige profiel is “${profile}”.`);
     if(!ankiProfile){ankiProfile=profile;try{localStorage.setItem('studielog.anki-profile',profile);}catch{}}
     if(!ankiFromDate){ankiFromDate=localDate();try{localStorage.setItem('studielog.anki-from-date',ankiFromDate);}catch{}}
-    const changed=await syncAnki(store,anki,new Date(),ankiFromDate);
+    const mappings=await ankiMappingUI.store.read(profile);
+    const changed=await syncAnki(store,anki,new Date(),ankiFromDate,mappings);
     entries=await store.read();render();
     $('anki-status').textContent=`Bijgewerkt om ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${changed} dagitems aangepast · profiel ${profile}.`;
   }catch(error){$('anki-status').textContent=error.message;}
@@ -69,6 +78,7 @@ function notify(message, error=false){$('notice').textContent=message;$('notice'
 function updateConnection(){
   const locked=busy||goalSaving||noteSaving||chartSaving;
   const connected=!!token && Date.now()<expiresAt;
+  $('anki-map-open').disabled=!connected||locked||!loaded;
   if(token && !connected){token='';expiresAt=0;clearSession(sessionStorageAvailable);}
   $('connection-dot').classList.toggle('connected',connected);
   $('connection-title').textContent=connected?'Google Sheets · verbonden':'Google Sheets · niet verbonden';

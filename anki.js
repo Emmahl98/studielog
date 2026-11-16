@@ -18,15 +18,28 @@ export class AnkiConnect {
     if(!Array.isArray(cards))throw new Error('Ongeldige kaartenlijst van AnkiConnect.');
     const reviews=[];
     for(let i=0;i<cards.length;i+=250){
-      const result=await this.call('getReviewsOfCards',{cards:cards.slice(i,i+250)});
+      const batch=cards.slice(i,i+250);
+      const decks=await this.call('getDecks',{cards:batch});
+      if(!decks||typeof decks!=='object'||Object.values(decks).some(value=>!Array.isArray(value)))throw new Error('Ongeldige decks van AnkiConnect.');
+      const cardDecks=new Map();
+      for(const [name,ids] of Object.entries(decks))for(const id of ids)cardDecks.set(String(id),name);
+      const result=await this.call('getReviewsOfCards',{cards:batch});
       if(!result||typeof result!=='object'||Object.values(result).some(value=>!Array.isArray(value)))throw new Error('Ongeldige herhalingen van AnkiConnect.');
-      for(const values of Object.values(result))reviews.push(...values);
+      for(const [card,values] of Object.entries(result)){
+        if(!cardDecks.has(card))throw new Error('Deck van een herhaalde kaart ontbreekt.');
+        for(const review of values)reviews.push({...review,deck:cardDecks.get(card)});
+      }
     }
     return reviews;
   }
 }
 
-export function dailyAnkiEntries(reviews,now=new Date()){
+export function methodForDeck(deck,mappings={}){
+  let name=deck||'';
+  while(name){if(Object.hasOwn(mappings,name)&&mappings[name])return mappings[name];const split=name.lastIndexOf('::');if(split<0)break;name=name.slice(0,split);}
+  return 'Anki';
+}
+export function dailyAnkiEntries(reviews,now=new Date(),mappings={}){
   const first=new Date(now.getFullYear(),now.getMonth(),now.getDate()-29);
   const today=localDate(now),days=new Map(),seen=new Set();
   for(const review of reviews){
@@ -34,17 +47,20 @@ export function dailyAnkiEntries(reviews,now=new Date()){
     const date=localDate(new Date(review.id));
     if(review.id<+first||date>today||seen.has(review.id))continue;
     seen.add(review.id);
-    const day=days.get(date)||{count:0,milliseconds:0};
+    const day=days.get(date)||{count:0,milliseconds:0,methods:new Map()};
+    const method=methodForDeck(review.deck,mappings),part=day.methods.get(method)||{time:0,count:0};
+    part.time+=review.time;part.count++;day.methods.set(method,part);
     day.count++;day.milliseconds+=review.time;days.set(date,day);
   }
   return [...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,day])=>({
-    id:`anki-daily-${date}`,date,type:'sessie',materials:'Anki',
+    id:`anki-daily-${date}`,date,type:'sessie',materials:[...day.methods.keys()].sort().join(', '),
+    weights:Object.fromEntries([...day.methods].sort(([a],[b])=>a.localeCompare(b)).map(([name,part])=>[name,100*(day.milliseconds?part.time/day.milliseconds:part.count/day.count)])),
     subject:`Anki · ${day.count} herhalingen`,minutes:Math.round(day.milliseconds/60000),createdAt:now.toISOString()
   }));
 }
 
-export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now)){
-  const wanted=dailyAnkiEntries(await anki.reviews(),now).filter(entry=>entry.date>=fromDate);
+export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now),mappings={}){
+  const wanted=dailyAnkiEntries(await anki.reviews(),now,mappings).filter(entry=>entry.date>=fromDate);
   const existing=await store.read();
   let changed=0;
   for(const entry of wanted){
@@ -52,7 +68,7 @@ export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now)
     if(matches.length>1)throw new Error(`Dubbel Anki-item op ${entry.date}. Controleer je spreadsheet.`);
     const old=matches[0];
     if(old){
-      if(old.minutes===entry.minutes&&old.subject===entry.subject&&old.materials===entry.materials)continue;
+      if(old.minutes===entry.minutes&&old.subject===entry.subject&&old.materials===entry.materials&&JSON.stringify(old.weights)===JSON.stringify(entry.weights))continue;
       await store.update({...entry,createdAt:old.createdAt});
     }else await store.add(entry);
     changed++;

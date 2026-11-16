@@ -1,3 +1,4 @@
+import {AnkiConnect,syncAnki} from './anki.js?v=1';
 import {displayDate,inputDate} from './dates.js?v=14';
 import {AnalyticsUI} from './analytics-ui.js?v=18';
 import {WeightsUI} from './weights-ui.js?v=18';
@@ -26,6 +27,38 @@ const store=new SheetsStore(config,()=>Date.now()<expiresAt ? token : '');
 const goalsStore=new GoalsStore(store);
 const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
 const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
+
+const anki=new AnkiConnect();
+const ankiKey='studielog.anki-enabled';
+let ankiEnabled=false,ankiProfile='';
+try{ankiEnabled=localStorage.getItem(ankiKey)==='true';ankiProfile=localStorage.getItem('studielog.anki-profile')||'';}catch{}
+if($('anki-enabled'))$('anki-enabled').checked=ankiEnabled;
+async function refreshAnki(manual=false){
+  if(!$('anki-enabled')||(!ankiEnabled&&!manual))return;
+  if(!token||Date.now()>=expiresAt||!loaded){if(manual)$('anki-status').textContent='Verbind eerst met Google en laad je studieoverzicht.';return;}
+  if(busy||goalSaving||noteSaving||chartSaving)return;
+  busy=true;updateConnection();$('anki-sync').disabled=true;
+  $('anki-status').textContent='Anki-activiteit ophalen…';
+  try{
+    const profile=await anki.call('getActiveProfile');
+    if(typeof profile!=='string'||!profile)throw new Error('Geen actief Anki-profiel gevonden.');
+    if(ankiProfile&&ankiProfile!==profile)throw new Error(`Open Anki-profiel “${ankiProfile}”. Het huidige profiel is “${profile}”.`);
+    if(!ankiProfile){ankiProfile=profile;try{localStorage.setItem('studielog.anki-profile',profile);}catch{}}
+    const changed=await syncAnki(store,anki);
+    entries=await store.read();render();
+    $('anki-status').textContent=`Bijgewerkt om ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${changed} dagitems aangepast · profiel ${profile}.`;
+  }catch(error){$('anki-status').textContent=error.message;}
+  finally{busy=false;updateConnection();$('anki-sync').disabled=false;}
+}
+$('anki-enabled')?.addEventListener('change',()=>{
+  ankiEnabled=$('anki-enabled').checked;
+  try{localStorage.setItem(ankiKey,String(ankiEnabled));}catch{$('anki-status').textContent='Je browser kan deze keuze niet onthouden.';}
+  if(ankiEnabled)refreshAnki(true);
+});
+$('anki-sync')?.addEventListener('click',()=>refreshAnki(true));
+setInterval(()=>{if(!document.hidden)refreshAnki();},300000);
+window.addEventListener('focus',()=>refreshAnki());
+
 
 const weightsUI=new WeightsUI();
 $('date').value=displayDate(localDate());
@@ -207,7 +240,7 @@ async function refresh(showMessage=true){
   busy=true;updateConnection();$('entries').setAttribute('aria-busy','true');
   try{entries=await store.read();loaded=true;render();await refreshGoal();await notesUI.refresh();await analyticsUI.refresh();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
   catch(error){notify(error.message,true);}
-  finally{busy=false;updateConnection();$('entries').setAttribute('aria-busy','false');}
+  finally{busy=false;updateConnection();$('entries').setAttribute('aria-busy','false');if(loaded)refreshAnki();}
 }
 function openSettings(){ $('client-id').value=clientId; $('settings-error').hidden=true; $('settings').showModal(); }
 $('settings-button').addEventListener('click',openSettings);

@@ -1,5 +1,5 @@
 import {displayDate,inputDate} from './dates.js?v=14';
-import {ChartStore,chartData,selectedMethods} from './analytics.js?v=16';
+import {ChartStore,chartData,selectedMethods} from './analytics.js?v=18';
 import {goalColors} from './goal-colors.js?v=13';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
@@ -40,7 +40,7 @@ export class AnalyticsUI{
    if(data.missing)card.append(node('p','goal-feedback',`${data.missing} items zonder duur zijn niet meegeteld in de uren.`));
    if(!data.points.length||(data.hours===0&&!colored?.status))card.append(node('p','notes-empty','Geen geregistreerde studietijd in deze selectie.'));
    else if(chart.view==='line')card.append(this.line(data.points));else card.append(this.bars(data.points));
-   if(chart.group==='method')card.append(node('p','goal-feedback','Bij meerdere methoden wordt de tijd gelijk verdeeld, zodat uren niet dubbel tellen.'));
+   if(chart.group==='method')card.append(node('p','goal-feedback','Uren volgen de percentages per studie-item. Zonder aangepaste percentages wordt de tijd gelijk verdeeld.'));
    if(data.monthly)card.append(node('p','goal-feedback','Lange periodes worden per maand getoond.'));
    const details=node('details','chart-table'),summary=node('summary','','Bekijk cijfers'),table=node('table'),header=node('tr');header.append(node('th','','Groep'),node('th','','Uren'),node('th','','Dagtempo'));table.append(header);for(const p of data.points){const row=node('tr');row.append(node('td','',displayDate(p.label)),node('td','',fmt.format(p.hours)),node('td','',p.goalStatus==='green'?'Op schema':p.goalStatus==='orange'?'Onder dagtempo':'—'));table.append(row);}details.append(summary,table);card.append(details);list.append(card);
   }

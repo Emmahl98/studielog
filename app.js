@@ -1,8 +1,9 @@
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=16';
+import {AnalyticsUI} from './analytics-ui.js?v=18';
+import {WeightsUI} from './weights-ui.js?v=18';
 import {materialList} from './materials.js';
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=9';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=18';
 import {studyProgress,validGoal} from './progress.js?v=5';
 import {GoalsStore} from './goals.js?v=13';
 import {goalSchedule} from './goal-schedule.js?v=8';
@@ -26,6 +27,7 @@ const goalsStore=new GoalsStore(store);
 const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
 const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
 
+const weightsUI=new WeightsUI();
 $('date').value=displayDate(localDate());
 $('today-label').textContent=displayDate(localDate());
 $('origin').textContent=location.origin;
@@ -47,7 +49,7 @@ function updateConnection(){
   $('cancel-edit').disabled=locked;
   document.querySelectorAll('.edit-entry').forEach(button=>button.disabled=locked || !connected || button.dataset.editable!=='true');
   $('entry-form').querySelectorAll('input,textarea').forEach(field=>field.disabled=locked);
-  $('add-material').disabled=locked;
+  $('add-material').disabled=locked;$('equal-weights').disabled=locked;
   $('goal-hours').disabled=!connected || busy || goalSaving;
   $('goal-name').disabled=!connected || locked;
   $('goal-start').disabled=!connected||locked;$('goal-deadline').disabled=!connected||locked;
@@ -66,7 +68,7 @@ function renderMaterials(){
   const selected=materialList($('materials').value);
   const options=[...new Set([...entries.flatMap(e=>materialList(e.materials)),...selected])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
   $('material-options').replaceChildren();
-  for(const method of options){const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();});label.append(input,document.createTextNode(method));$('material-options').append(label);}
+  for(const method of options){const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();weightsUI.selectionChanged();});label.append(input,document.createTextNode(method));$('material-options').append(label);}
   if(!options.length)$('material-options').append(node('p','goal-feedback','Nog geen methoden. Voeg hieronder je eerste methode toe.'));
   updateMaterialsSummary();
 }
@@ -76,7 +78,7 @@ function addMaterial(){
   const added=materialList($('new-material').value);if(!added.length)return;
   const value=[...new Set([...materialList($('materials').value),...added])].join(', ');
   if(value.length>2000){$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}
-  $('materials').value=value;$('new-material').value='';$('material-error').hidden=true;renderMaterials();
+  $('materials').value=value;$('new-material').value='';$('material-error').hidden=true;renderMaterials();weightsUI.selectionChanged();
 }
 $('add-material').addEventListener('click',addMaterial);
 $('new-material').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addMaterial();}});
@@ -95,7 +97,7 @@ function render(){
     const time=node('time','',displayDate(date));time.dateTime=date;heading.append(time);header.append(heading,node('small','',`${items.length} ${items.length===1?'item':'items'}`));section.append(header);
     for(const item of items){
       const article=node('article','entry');const body=node('div','entry-body');body.append(node('p','',item.subject));
-      if(item.materials)body.append(node('p','entry-materials',item.materials));
+      if(item.materials)body.append(node('p','entry-materials',item.weights?materialList(item.materials).map(m=>`${m} (${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2}).format(item.weights[m])}%)`).join(', '):item.materials));
       body.append(node('span','entry-duration',item.minutes===null?'Duur niet ingevuld':`${new Intl.NumberFormat('nl-NL').format(item.minutes)} min`));
       const edit=node('button','text-button edit-entry','Bewerken');edit.type='button';edit.dataset.editable=String(!!item.id);edit.setAttribute('aria-label',`Bewerken: ${item.subject}`);edit.disabled=busy || !item.id;edit.addEventListener('click',()=>startEdit(item));
       article.append(node('span',`badge ${item.type}`,item.type),body,edit);section.append(article);
@@ -182,14 +184,14 @@ $('goal-form').addEventListener('submit',async event=>{
 function startEdit(item){
   if(busy)return;editingId=item.id;pending=null;
   $('date').value=displayDate(item.date);$('subject').value=item.subject;$('minutes').value=item.minutes??'';$('materials').value=item.materials||'';
-  renderMaterials();$('new-material').value='';$('material-error').hidden=true;
+  renderMaterials();weightsUI.set(item);$('new-material').value='';$('material-error').hidden=true;
   document.querySelectorAll('input[name="type"]').forEach(input=>input.checked=input.value===item.type);
   $('char-count').textContent=`${item.subject.length} / 2000`;$('entry-title').textContent='Studie-item bewerken';$('save').textContent='Wijzigingen opslaan';$('cancel-edit').hidden=false;
   $('entry-form').scrollIntoView({behavior:'smooth',block:'center'});$('subject').focus({preventScroll:true});updateConnection();
 }
 function finishEdit(clear=false){
   editingId=null;pending=null;$('entry-title').textContent='Nieuw studie-item';$('save').textContent='＋ Item opslaan';$('cancel-edit').hidden=true;
-  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=displayDate(localDate());$('char-count').textContent='0 / 2000';$('new-material').value='';$('materials-dropdown').open=false;$('material-error').hidden=true;renderMaterials();}
+  if(clear){$('materials').value='';$('subject').value='';$('minutes').value='';$('date').value=displayDate(localDate());$('char-count').textContent='0 / 2000';$('new-material').value='';$('materials-dropdown').open=false;$('material-error').hidden=true;renderMaterials();weightsUI.set(null);}
 }
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){
@@ -229,9 +231,10 @@ $('entry-form').addEventListener('submit',async event=>{
   event.preventDefault();if(busy)return;
   if(!token || Date.now()>=expiresAt){notify('Verbind opnieuw met Google. Je invoer blijft staan.',true);updateConnection();return;}
   const date=inputDate($('date').value),type=new FormData(event.currentTarget).get('type'),subject=$('subject').value.trim(),minutes=Number($('minutes').value),materials=materialList($('materials').value).join(', ');
+  let weights;try{weights=weightsUI.value();if(materialList(materials).some(m=>/^tobira$/i.test(m)))throw Error('Kies voor Tobira een hoofdstuk, bijvoorbeeld Tobira H1.');}catch(error){notify(error.message,true);return;}
   if(!subject){notify('Beschrijf kort wat je hebt gestudeerd.',true);$('subject').focus();return;}
   if(!validMinutes(minutes)){notify('Vul een heel aantal minuten groter dan 0 in.',true);$('minutes').focus();return;}
-  if(!pending || pending.date!==date || pending.type!==type || pending.subject!==subject || pending.minutes!==minutes || pending.materials!==materials)pending={date,type,subject,minutes,materials,id:editingId||crypto.randomUUID(),createdAt:entries.find(item=>item.id===editingId)?.createdAt||new Date().toISOString()};
+  if(!pending || pending.date!==date || pending.type!==type || pending.subject!==subject || pending.minutes!==minutes || pending.materials!==materials || JSON.stringify(pending.weights)!==JSON.stringify(weights))pending={date,type,subject,minutes,materials,weights,id:editingId||crypto.randomUUID(),createdAt:entries.find(item=>item.id===editingId)?.createdAt||new Date().toISOString()};
   busy=true;updateConnection();$('save').textContent='Opslaan…';
   let saved=false;
   try{

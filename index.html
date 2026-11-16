@@ -7,9 +7,9 @@
   <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
   <title>Studielog · Mijn studiedagboek</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=17">
+  <link rel="stylesheet" href="./style.css?v=18">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=17"></script>
+  <script type="module" src="./app.js?v=18"></script>
 </head>
 <body>
   <a class="skip" href="#main">Naar inhoud</a>
@@ -37,6 +37,7 @@
           <input id="materials" type="hidden">
           <details id="materials-dropdown" class="materials-dropdown"><summary id="materials-summary">Selecteer studieboeken / methoden</summary><div class="materials-menu"><div id="material-options" role="group" aria-labelledby="materials-label"></div><label for="new-material">Nieuwe methode toevoegen</label><div class="material-add"><input id="new-material" type="text" maxlength="2000" placeholder="Naam van studieboek of methode"><button id="add-material" type="button" class="button secondary">Toevoegen</button></div><p id="material-error" class="error" role="alert" hidden></p></div></details>
           <p class="minutes-hint">Je kunt meerdere methoden aanvinken.</p>
+          <fieldset class="weights-editor"><legend>Tijd per methode</legend><label class="material-choice"><input id="custom-weights" type="checkbox"> Percentages aanpassen voor dit item</label><p class="minutes-hint">Standaard gelijke verdeling. Bij een andere methodeselectie worden de percentages opnieuw gelijk verdeeld.</p><div id="weights-fields" hidden><div id="method-weights"></div><p id="weights-total" class="goal-feedback" role="status" aria-live="polite"></p><button id="equal-weights" type="button" class="text-button">Gelijk verdelen</button></div></fieldset>
           <label for="subject">Wat heb je gestudeerd?</label><textarea id="subject" name="subject" rows="5" maxlength="2000" placeholder="Bijvoorbeeld: hoofdstuk 3 herhaald en kanji geoefend" required></textarea>
           <div class="field-hint" style="justify-content:flex-end"><span id="char-count">0 / 2000</span></div>
           <button class="button primary" id="save" type="submit" disabled><span aria-hidden="true">＋</span> Item opslaan</button>

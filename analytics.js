@@ -1,4 +1,5 @@
-import {localDate,validDate} from './data.js';
+import {localDate,validDate} from './data.js?v=18';
+import {methodShares} from './weights.js';
 import {materialList} from './materials.js';
 export const CHART_HEADERS=['ID','Naam','Periode','Groepering','Weergave','Methode','Status','Van','Tot','Sortering','Doelkleuren'];
 // Keep existing single-method settings readable; multiple choices share the same Sheet column.
@@ -23,11 +24,10 @@ export function chartData(entries,chart,today=localDate()){
   if(chart.group==='day'){let d=new Date(`${from}T12:00:00`);const end=new Date(`${to}T12:00:00`);for(let i=0;d<=end&&i<37000;i++,d.setDate(d.getDate()+1)){const key=localDate(d).slice(0,monthly?7:10);groups.set(key,0);}}
   let minutes=0,missing=0;
   for(const e of selected){if(!Number.isFinite(e.minutes)){missing++;continue;}
-    const keys=chart.group==='day'?[e.date.slice(0,monthly?7:10)]:chart.group==='type'?[e.type==='les'?'Les':'Sessie']:materialList(e.materials);
-    if(!keys.length)keys.push('Niet ingevuld');
-    const visible=chart.group==='method'&&methods.length?keys.filter(key=>methods.includes(key)):keys;
-    minutes+=e.minutes*visible.length/keys.length;
-    for(const key of visible)groups.set(key,(groups.get(key)||0)+e.minutes/keys.length);
+    const shares=methodShares(e).filter(([method])=>!methods.length||methods.includes(method));
+    const contribution=shares.reduce((sum,[,share])=>sum+e.minutes*share,0);minutes+=contribution;
+    const allocations=chart.group==='method'?shares.map(([key,share])=>[key,e.minutes*share]):[[chart.group==='day'?e.date.slice(0,monthly?7:10):e.type==='les'?'Les':'Sessie',contribution]];
+    for(const [key,value] of allocations)groups.set(key,(groups.get(key)||0)+value);
   }
   const points=[...groups].map(([label,minutes])=>({label,hours:minutes/60}));const sort=chart.sort||(chart.group==='day'?'label-asc':'hours-desc');
   const collator=new Intl.Collator('nl',{numeric:true,sensitivity:'base'});

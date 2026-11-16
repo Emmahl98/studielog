@@ -10,7 +10,7 @@ test('rolling ranges include today, zero days, missing durations and exclude tom
 });
 test('method grouping divides multi-method hours without double counting',()=>{
  const d=chartData(entries,{...config,group:'method'},'2026-11-15');assert.equal(d.points.reduce((sum,p)=>sum+p.hours,0),1.5);assert.equal(d.points.find(p=>p.label==='Tobira H6').hours,1);
- const filtered=chartData(entries,{...config,method:'Tobira H6'},'2026-11-15');assert.equal(filtered.hours,1.5);
+ const filtered=chartData(entries,{...config,method:'Tobira H6'},'2026-11-15');assert.equal(filtered.hours,1);
  const custom=chartData(entries,{...config,period:'custom',from:'2026-11-13',to:'2026-11-13'},'2026-11-15');assert.equal(custom.hours,1);
  assert.throws(()=>validateChart({...config,period:'custom',from:'2026-11-20',to:'2026-11-01'}));
 });

@@ -55,10 +55,18 @@ Doelen hebben optionele Startdatum en Deadline (kolommen I en J, YYYY-MM-DD). Va
 
 ## Data en methoden
 
-De Data-tab bevat zelf toe te voegen, te wijzigen en te verwijderen grafieken: staafdiagram of lijn, laatste 3/7/30/90 dagen, alles tot vandaag of een eigen periode. Groepeer op dag, soort of methode en filter op een methode. Kalenderperiodes tellen vandaag mee; lege dagen worden getoond. Lange dagperiodes worden per maand gegroepeerd. De cijfers zijn ook in een tabel te bekijken. Bij meerdere methoden wordt de tijd gelijk verdeeld; items zonder duur zijn uitgesloten van urentotalen. Grafiekinstellingen staan in Grafieken (ID, Naam, Periode, Groepering, Weergave, Methode, Status, Van, Tot). Verwijderen zet de status op verwijderd.
+De Data-tab bevat zelf toe te voegen, te wijzigen en te verwijderen grafieken: staafdiagram of lijn, laatste 3/7/30/90 dagen, alles tot vandaag of een eigen periode. Groepeer op dag, soort of methode en filter op een methode. Kalenderperiodes tellen vandaag mee; lege dagen worden getoond. Lange dagperiodes worden per maand gegroepeerd. De cijfers zijn ook in een tabel te bekijken. Bij meerdere methoden wordt de tijd standaard gelijk verdeeld; aangepaste percentages per item worden gerespecteerd. Items zonder duur zijn uitgesloten van urentotalen. Grafiekinstellingen staan in Grafieken (ID, Naam, Periode, Groepering, Weergave, Methode, Status, Van, Tot). Verwijderen zet de status op verwijderd.
 
 Studieboeken/methoden staan in de bestaande kolom I (Lesmateriaal), met meerdere namen gescheiden door komma's. Bestaande Notion-links worden alleen voor weergave opgeschoond; Tobira-titels en hoofdstukken krijgen herkenbare namen. Ongewijzigde materialen behouden hun oorspronkelijke Notion-tekst en links in de Sheet. Bij expliciete wijzigingen wordt alleen dit veld bijgewerkt, naast de gewone bewerkbare studievelden.
 
 Grafieken hebben een eigen sortering: datum/tekst oplopend of aflopend, of uren oplopend/aflopend. Tekst gebruikt natuurlijke Nederlandse sortering (H2 voor H10). De keuze wordt bewaard in Grafieken, kolom J (Sortering).
 
 Een actief doel kan als Highlight worden aangevinkt; slechts één ID wordt bewaard in Instellingen!B3. Het kiezen van een ander doel vervangt de eerdere keuze. Doelkleuren kunnen per grafiek worden ingeschakeld (Grafieken!K). De achtergrond vergelijkt het gemiddelde aantal uren per kalenderdag in de gekozen selectie met het actuele benodigde dagtempo van het highlight-doel. Dagen in daggrafieken krijgen afzonderlijk groen (op/boven tempo) of oranje (eronder); de tabel geeft dezelfde status in tekst. De vergelijking is dynamisch, geen historische momentopname. Zonder actief highlight-doel, bruikbare deadline of vóór de startdatum blijven kleuren uit met uitleg. Bij maandgroepering wordt alleen de hele kaart gekleurd.
+
+
+
+## Tijdverdeling per methode
+
+Bij invoeren en bewerken kun je onder **Tijd per methode** percentages instellen voor dat specifieke item. Zonder aangepaste percentages telt elke geselecteerde methode even zwaar. Aangepaste percentages moeten samen precies 100% zijn; 0% is toegestaan. **Gelijk verdelen** herstelt gelijke percentages (op twee decimalen). Een gewijzigde methodeselectie verdeelt opnieuw gelijk. In de grafieken tellen alleen de toegewezen uren voor geselecteerde methoden mee, ook bij groepering op dag of soort. Het totale aantal studie-uren en de doelvoortgang blijven ongewijzigd.
+
+De optionele JSON-verdeling wordt opgeslagen in `Sheet1!O` (Methodepercentages); een lege cel betekent exact gelijke verdeling. Kolommen J:N met bestaande Notion-gegevens blijven behouden. Voor Tobira moet bij het opslaan een hoofdstuk worden gekozen, bijvoorbeeld `Tobira H1`, in plaats van het algemene `Tobira`.

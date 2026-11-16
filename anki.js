@@ -1,4 +1,5 @@
 import {localDate} from './data.js';
+import {materialList} from './materials.js';
 
 export class AnkiConnect {
   constructor(fetcher=fetch){this.fetcher=(...args)=>fetcher(...args);}
@@ -48,8 +49,11 @@ export function dailyAnkiEntries(reviews,now=new Date(),mappings={}){
     if(review.id<+first||date>today||seen.has(review.id))continue;
     seen.add(review.id);
     const day=days.get(date)||{count:0,milliseconds:0,methods:new Map()};
-    const method=methodForDeck(review.deck,mappings),part=day.methods.get(method)||{time:0,count:0};
-    part.time+=review.time;part.count++;day.methods.set(method,part);
+    const methods=materialList(methodForDeck(review.deck,mappings));
+    for(const method of methods){
+      const part=day.methods.get(method)||{time:0,count:0};
+      part.time+=review.time/methods.length;part.count+=1/methods.length;day.methods.set(method,part);
+    }
     day.count++;day.milliseconds+=review.time;days.set(date,day);
   }
   return [...days].sort(([a],[b])=>a.localeCompare(b)).map(([date,day])=>({

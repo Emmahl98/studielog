@@ -60,3 +60,11 @@ test('mapping changes update the same daily row even with unchanged minutes',asy
   await syncAnki(store,anki,now,'2026-11-16',{'Deck':'Tobira'});
   assert.equal(updates,1);assert.equal(rows.length,1);assert.equal(rows[0].materials,'Tobira');
 });
+test('multiple methods share a deck time equally and merge with other decks without duplicate time',()=>{
+  const a=review(16,60000,{deck:'Main::Child'}),b=review(16,60000,{id:a.id+1,deck:'Other'});
+  const entry=dailyAnkiEntries([a,b],now,{'Main':'A, B, A','Other':'B'})[0];
+  assert.equal(entry.minutes,2);assert.equal(entry.subject,'Anki · 2 herhalingen');
+  assert.deepEqual(entry.weights,{A:25,B:75});
+  const zero=dailyAnkiEntries([{...a,time:0},{...b,time:0}],now,{'Main':'A, B','Other':'B'})[0];
+  assert.deepEqual(zero.weights,{A:25,B:75});
+});

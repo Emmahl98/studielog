@@ -1,5 +1,5 @@
-import {AnkiMappingsStore} from './anki-mappings.js';
-import {methodForDeck} from './anki.js?v=2';
+import {AnkiMappingsStore} from './anki-mappings.js?v=2';
+import {methodForDeck} from './anki.js?v=3';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id);
 export class AnkiMappingUI {
@@ -20,21 +20,25 @@ export class AnkiMappingUI {
       const decks=await this.anki.call('deckNames');
       if(!Array.isArray(decks)||decks.some(deck=>typeof deck!=='string'))throw Error('Ongeldige decknamen van AnkiConnect.');
       this.mappings=await this.store.read(this.profile);
-      const methods=[...new Set([...this.options.entries().flatMap(entry=>materialList(entry.materials)),...Object.values(this.mappings)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
+      const methods=[...new Set([...this.options.entries().flatMap(entry=>materialList(entry.materials)),...Object.values(this.mappings).flatMap(materialList)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
       $('anki-map-methods').replaceChildren(...methods.map(method=>{const option=document.createElement('option');option.value=method;return option;}));
       for(const deck of [...new Set([...decks,...Object.keys(this.mappings)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}))){
         const row=document.createElement('div');row.style.marginBottom='16px';
-        const input=document.createElement('input');input.type='text';input.maxLength=200;input.setAttribute('list','anki-map-methods');input.placeholder='Erven van bovenliggend deck, anders Anki';input.value=this.mappings[deck]||'';input.dataset.deck=deck;input.id=`anki-map-deck-${$('anki-map-rows').children.length}`;
+        const input=document.createElement('input');input.type='text';input.maxLength=2000;input.placeholder='Methodes, gescheiden door komma’s';input.value=this.mappings[deck]||'';input.dataset.deck=deck;input.id=`anki-map-deck-${$('anki-map-rows').children.length}`;
         const label=document.createElement('label');label.htmlFor=input.id;label.textContent=deck;
         const hint=document.createElement('p');hint.className='goal-feedback';hint.dataset.hint=deck;
-        row.append(label,input,hint);$('anki-map-rows').append(row);
+        const add=document.createElement('input');add.type='text';add.setAttribute('list','anki-map-methods');add.placeholder='Kies of typ een methode';add.setAttribute('aria-label',`Methode toevoegen aan ${deck}`);
+        const button=document.createElement('button');button.type='button';button.className='button secondary';button.textContent='Methode toevoegen';
+        const append=()=>{const value=materialList([...materialList(input.value),...materialList(add.value)].join(', ')).join(', ');if(value.length>2000){$('anki-map-message').textContent='Gebruik maximaal 2000 tekens per deck.';return;}input.value=value;add.value='';this.preview();};
+        button.addEventListener('click',append);add.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();append();}});
+        row.append(label,input,add,button,hint);$('anki-map-rows').append(row);
         input.addEventListener('input',()=>this.preview());
       }
-      this.preview();$('anki-map-save').disabled=false;$('anki-map-message').textContent=`Profiel: ${this.profile}. Kies een bestaande methode of typ een nieuwe naam.`;
+      this.preview();$('anki-map-save').disabled=false;$('anki-map-message').textContent=`Profiel: ${this.profile}. Voeg meerdere methodes toe per deck. De tijd wordt gelijk verdeeld.`;
     }catch(error){$('anki-map-message').textContent=error.message;}
     finally{this.options.setBusy(false);}
   }
-  values(){return Object.fromEntries([...$('anki-map-rows').querySelectorAll('input')].map(input=>[input.dataset.deck,input.value.trim()]).filter(([,method])=>method));}
+  values(){return Object.fromEntries([...$('anki-map-rows').querySelectorAll('input[data-deck]')].map(input=>[input.dataset.deck,materialList(input.value).join(', ')]).filter(([,method])=>method));}
   preview(){const values=this.values();for(const hint of $('anki-map-rows').querySelectorAll('[data-hint]'))hint.textContent=`Telt mee bij: ${methodForDeck(hint.dataset.hint,values)}`;}
   async save(){
     if(this.saving||!this.options.canMutate())return;

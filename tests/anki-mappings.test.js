@@ -16,7 +16,9 @@ test('updating a profile preserves others and clears old trailing mappings',asyn
   const store=new AnkiMappingsStore({request:async(path,options)=>{if(options){written=JSON.parse(options.body).values;return{};}return path.startsWith('?')?{sheets:[{properties:{title:'AnkiDecks'}}]}:{values};}});
   await store.save('User',{'C':'C'});
   assert.deepEqual(written,[values[0],values[1],['User','C','C'],['','','']]);
-  await assert.rejects(store.save('User',{'D':'A, B'}),/één lesmethode/);
+  await store.save('User',{'D':'A, B, A'});
+  assert.deepEqual(written[2],['User','D','A, B']);
+  await assert.rejects(store.save('User',{'D':'A'.repeat(2001)}),/2000 tekens/);
 });
 test('unexpected schema prevents writing',async()=>{
   const store=new AnkiMappingsStore({request:async(path,options)=>{assert.equal(options,undefined);return path.startsWith('?')?{sheets:[{properties:{title:'AnkiDecks'}}]}:{values:[['Wrong']]};}});

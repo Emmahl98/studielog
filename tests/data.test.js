@@ -30,7 +30,8 @@ test('retry after an uncertain save does not append the same ID twice',async()=>
 test('minutes are read from imported rows and missing values stay unknown',()=>{
   const rows=parseRows([['2026-11-15','les','Les','1','','',50,0.8],['2026-11-15','sessie','Oud item','2'],['2026-11-14','sessie','Tekstgetal','3','','','25']]);
   assert.deepEqual(rows.map(row=>row.minutes),[50,null,25]);
-  for(const value of [0,-1,1.5,NaN,Infinity,'25'])assert.equal(validMinutes(value),false);
+  for(const value of [-1,1.5,NaN,Infinity,'25'])assert.equal(validMinutes(value),false);
+  assert.equal(validMinutes(0),true);
   assert.equal(validMinutes(43800),true);
 });
 test('editing resolves the current ID row and writes only editable fields',async()=>{

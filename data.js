@@ -1,7 +1,7 @@
 import {parseWeights,validateWeights} from './weights.js';
 import {materialList} from './materials.js';
 export const HEADERS = ['Datum', 'Label', 'Onderwerp', 'ID', 'Aangemaakt', 'Naam', 'Minuten', 'Uren', 'Lesmateriaal'];
-export function validMinutes(value) { return typeof value==='number' && Number.isSafeInteger(value) && value>0; }
+export function validMinutes(value) { return typeof value==='number' && Number.isSafeInteger(value) && value>=0; }
 export function parseMinutes(value) {
   if(value===undefined || value===null || String(value).trim()==='')return null;
   const number=Number(value);
@@ -11,7 +11,7 @@ export function validateEntry(entry) {
   validateWeights(entry.materials,entry.weights);
   if(materialList(entry.materials).some(m=>/^tobira$/i.test(m)))throw new Error('Kies voor Tobira een hoofdstuk, bijvoorbeeld Tobira H1.');
   if(entry.materials!==undefined&&(typeof entry.materials!=='string'||entry.materials.length>2000))throw new Error('Gebruik maximaal 2000 tekens voor studieboeken en methoden.');
-  if (!validDate(entry.date) || !['sessie','les'].includes(entry.type) || typeof entry.subject!=='string' || !entry.subject.trim() || entry.subject.length>2000 || !entry.id || !validMinutes(entry.minutes)) throw new Error('Vul een geldige datum, soort, beschrijving en een heel aantal minuten groter dan 0 in.');
+  if (!validDate(entry.date) || !['sessie','les'].includes(entry.type) || typeof entry.subject!=='string' || !entry.subject.trim() || entry.subject.length>2000 || !entry.id || !validMinutes(entry.minutes)) throw new Error('Vul een geldige datum, soort, beschrijving en een heel aantal minuten van 0 of meer in.');
 }
 export function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;

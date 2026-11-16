@@ -21,33 +21,50 @@ export class AnkiMappingUI {
       if(!Array.isArray(decks)||decks.some(deck=>typeof deck!=='string'))throw Error('Ongeldige decknamen van AnkiConnect.');
       this.mappings=await this.store.read(this.profile);
       const methods=[...new Set([...this.options.entries().flatMap(entry=>materialList(entry.materials)),...Object.values(this.mappings).flatMap(materialList)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
-      $('anki-map-methods').replaceChildren(...methods.map(method=>{const option=document.createElement('option');option.value=method;return option;}));
+      this.selections=new Map();
       for(const deck of [...new Set([...decks,...Object.keys(this.mappings)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}))){
-        const row=document.createElement('div');row.style.marginBottom='16px';
-        const input=document.createElement('input');input.type='text';input.maxLength=2000;input.placeholder='Methodes, gescheiden door komma’s';input.value=this.mappings[deck]||'';input.dataset.deck=deck;input.id=`anki-map-deck-${$('anki-map-rows').children.length}`;
-        const label=document.createElement('label');label.htmlFor=input.id;label.textContent=deck;
+        const row=document.createElement('section');row.className='anki-deck-row';
+        const selected=new Set(materialList(this.mappings[deck]));this.selections.set(deck,selected);
+        const title=document.createElement('h3');title.className='anki-deck-title';title.textContent=deck;
+        const tags=document.createElement('div');tags.className='anki-method-tags';tags.setAttribute('aria-label',`Geselecteerde lesmethodes voor ${deck}`);
+        const dropdown=document.createElement('details');dropdown.className='anki-method-picker';
+        const summary=document.createElement('summary');summary.setAttribute('aria-label',`Lesmethodes kiezen voor ${deck}`);
+        const menu=document.createElement('div');menu.className='anki-method-menu';
+        const search=document.createElement('input');search.type='search';search.placeholder='Zoek een lesmethode';search.setAttribute('aria-label',`Lesmethodes zoeken voor ${deck}`);
+        const choices=document.createElement('div');choices.className='anki-method-options';choices.setAttribute('role','group');choices.setAttribute('aria-label',`Lesmethodes voor ${deck}`);
+        const checkboxes=new Map();
+        const renderTags=()=>{
+          summary.textContent=selected.size?`Lesmethodes kiezen (${selected.size})`:'Lesmethodes kiezen';
+          tags.replaceChildren(...[...selected].map(method=>{const tag=document.createElement('span');tag.className='anki-method-tag';const name=document.createElement('span');name.textContent=method;const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`${method} verwijderen bij ${deck}`);remove.addEventListener('click',()=>{selected.delete(method);checkboxes.get(method).checked=false;renderTags();this.preview();summary.focus();});tag.append(name,remove);return tag;}));
+        };
+        for(const method of methods){
+          const label=document.createElement('label');label.className='anki-method-choice';
+          const checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=selected.has(method);checkboxes.set(method,checkbox);
+          checkbox.addEventListener('change',()=>{if(checkbox.checked){if([...selected,method].join(', ').length>2000){checkbox.checked=false;$('anki-map-message').textContent='Kies maximaal 2000 tekens aan methodes per deck.';return;}selected.add(method);}else selected.delete(method);renderTags();this.preview();});
+          label.append(checkbox,document.createTextNode(method));label.dataset.method=method;choices.append(label);
+        }
+        const empty=document.createElement('p');empty.className='goal-feedback';empty.textContent='Geen lesmethodes gevonden.';empty.hidden=methods.length>0;
+        search.addEventListener('input',()=>{let count=0;for(const label of choices.children){label.hidden=!label.dataset.method.toLocaleLowerCase('nl').includes(search.value.toLocaleLowerCase('nl'));if(!label.hidden)count++;}empty.hidden=count>0;});
+        dropdown.addEventListener('toggle',()=>{if(dropdown.open)for(const other of $('anki-map-rows').querySelectorAll('details'))if(other!==dropdown)other.open=false;});
+        menu.append(search,choices,empty);dropdown.append(summary,menu);renderTags();
         const hint=document.createElement('p');hint.className='goal-feedback';hint.dataset.hint=deck;
-        const add=document.createElement('input');add.type='text';add.setAttribute('list','anki-map-methods');add.placeholder='Kies of typ een methode';add.setAttribute('aria-label',`Methode toevoegen aan ${deck}`);
-        const button=document.createElement('button');button.type='button';button.className='button secondary';button.textContent='Methode toevoegen';
-        const append=()=>{const value=materialList([...materialList(input.value),...materialList(add.value)].join(', ')).join(', ');if(value.length>2000){$('anki-map-message').textContent='Gebruik maximaal 2000 tekens per deck.';return;}input.value=value;add.value='';this.preview();};
-        button.addEventListener('click',append);add.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();append();}});
-        row.append(label,input,add,button,hint);$('anki-map-rows').append(row);
-        input.addEventListener('input',()=>this.preview());
+        row.append(title,tags,dropdown,hint);$('anki-map-rows').append(row);
       }
-      this.preview();$('anki-map-save').disabled=false;$('anki-map-message').textContent=`Profiel: ${this.profile}. Voeg meerdere methodes toe per deck. De tijd wordt gelijk verdeeld.`;
+      this.preview();$('anki-map-save').disabled=false;$('anki-map-message').textContent=`Profiel: ${this.profile}. Vink meerdere lesmethodes aan per deck. De tijd wordt gelijk verdeeld.`;
     }catch(error){$('anki-map-message').textContent=error.message;}
     finally{this.options.setBusy(false);}
   }
-  values(){return Object.fromEntries([...$('anki-map-rows').querySelectorAll('input[data-deck]')].map(input=>[input.dataset.deck,materialList(input.value).join(', ')]).filter(([,method])=>method));}
+  values(){return Object.fromEntries([...this.selections||[]].map(([deck,selected])=>[deck,[...selected].join(', ')]).filter(([,method])=>method));}
   preview(){const values=this.values();for(const hint of $('anki-map-rows').querySelectorAll('[data-hint]'))hint.textContent=`Telt mee bij: ${methodForDeck(hint.dataset.hint,values)}`;}
   async save(){
     if(this.saving||!this.options.canMutate())return;
+    const mappings=this.values();
     this.saving=true;this.options.setBusy(true);$('anki-map-save').disabled=true;$('anki-map-close').disabled=true;
     let saved=false;
     try{
       const profile=await this.anki.call('getActiveProfile');
       if(profile!==this.profile)throw Error('Het Anki-profiel is gewijzigd. Sluit dit venster en open de koppelingen opnieuw.');
-      await this.store.save(this.profile,this.values());saved=true;
+      await this.store.save(this.profile,mappings);saved=true;
       $('anki-map-dialog').close();$('anki-status').textContent='Deckkoppelingen opgeslagen. Anki-items worden opnieuw verdeeld…';
     }catch(error){$('anki-map-message').textContent=error.message;}
     finally{this.saving=false;this.options.setBusy(false);$('anki-map-save').disabled=false;$('anki-map-close').disabled=false;}

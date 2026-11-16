@@ -1,0 +1,18 @@
+.anki-deck-row{padding:18px 0;border-bottom:1px solid #e4e8e1}
+.anki-deck-title{font-size:1rem;margin:0 0 10px;overflow-wrap:anywhere}
+.anki-method-tags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.anki-method-tags:empty{display:none}
+.anki-method-tag{display:inline-flex;align-items:center;gap:6px;background:#e9f0e6;color:#284b3b;border:1px solid #cfddca;border-radius:20px;padding:4px 5px 4px 11px;font-size:.85rem;max-width:100%}
+.anki-method-tag span{overflow-wrap:anywhere;min-width:0}
+.anki-method-tag button{border:0;background:transparent;color:inherit;border-radius:50%;width:28px;height:28px;flex-shrink:0;font-size:1.15rem;cursor:pointer}
+.anki-method-tag button:hover{background:#d4e1cf}
+.anki-method-picker{border:1px solid #d8dfd3;border-radius:10px;background:#fff}
+.anki-method-picker summary{padding:12px;cursor:pointer;color:#31584a;font-size:.9rem}
+.anki-method-menu{padding:0 12px 12px}
+.anki-method-menu input[type=search]{width:100%;margin-bottom:8px}
+.anki-method-options{max-height:220px;overflow:auto;overscroll-behavior:contain}
+.anki-method-choice{display:flex;align-items:center;gap:9px;padding:9px 5px;margin:0;font-weight:400;cursor:pointer;border-radius:6px}
+.anki-method-choice:hover{background:#f1f5ee}
+.anki-method-choice input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#31584a}
+.anki-method-choice[hidden]{display:none}
+.anki-method-picker summary:focus-visible,.anki-method-tag button:focus-visible{outline:2px solid #31584a;outline-offset:2px}

@@ -1,4 +1,4 @@
-import {AnkiMappingUI} from './anki-mapping-ui.js?v=2';
+import {AnkiMappingUI} from './anki-mapping-ui.js?v=3';
 import {AnkiConnect,syncAnki} from './anki.js?v=3';
 import {displayDate,inputDate} from './dates.js?v=14';
 import {AnalyticsUI} from './analytics-ui.js?v=18';

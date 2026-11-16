@@ -43,8 +43,8 @@ export function dailyAnkiEntries(reviews,now=new Date()){
   }));
 }
 
-export async function syncAnki(store,anki,now=new Date()){
-  const wanted=dailyAnkiEntries(await anki.reviews(),now);
+export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now)){
+  const wanted=dailyAnkiEntries(await anki.reviews(),now).filter(entry=>entry.date>=fromDate);
   const existing=await store.read();
   let changed=0;
   for(const entry of wanted){

@@ -30,8 +30,8 @@ const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updat
 
 const anki=new AnkiConnect();
 const ankiKey='studielog.anki-enabled';
-let ankiEnabled=false,ankiProfile='';
-try{ankiEnabled=localStorage.getItem(ankiKey)==='true';ankiProfile=localStorage.getItem('studielog.anki-profile')||'';}catch{}
+let ankiEnabled=false,ankiProfile='',ankiFromDate='';
+try{ankiEnabled=localStorage.getItem(ankiKey)==='true';ankiProfile=localStorage.getItem('studielog.anki-profile')||'';ankiFromDate=localStorage.getItem('studielog.anki-from-date')||'';}catch{}
 if($('anki-enabled'))$('anki-enabled').checked=ankiEnabled;
 async function refreshAnki(manual=false){
   if(!$('anki-enabled')||(!ankiEnabled&&!manual))return;
@@ -44,7 +44,8 @@ async function refreshAnki(manual=false){
     if(typeof profile!=='string'||!profile)throw new Error('Geen actief Anki-profiel gevonden.');
     if(ankiProfile&&ankiProfile!==profile)throw new Error(`Open Anki-profiel “${ankiProfile}”. Het huidige profiel is “${profile}”.`);
     if(!ankiProfile){ankiProfile=profile;try{localStorage.setItem('studielog.anki-profile',profile);}catch{}}
-    const changed=await syncAnki(store,anki);
+    if(!ankiFromDate){ankiFromDate=localDate();try{localStorage.setItem('studielog.anki-from-date',ankiFromDate);}catch{}}
+    const changed=await syncAnki(store,anki,new Date(),ankiFromDate);
     entries=await store.read();render();
     $('anki-status').textContent=`Bijgewerkt om ${new Date().toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit'})} · ${changed} dagitems aangepast · profiel ${profile}.`;
   }catch(error){$('anki-status').textContent=error.message;}

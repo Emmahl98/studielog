@@ -70,3 +70,10 @@ Een actief doel kan als Highlight worden aangevinkt; slechts één ID wordt bewa
 Bij invoeren en bewerken kun je onder **Tijd per methode** percentages instellen voor dat specifieke item. Zonder aangepaste percentages telt elke geselecteerde methode even zwaar. Aangepaste percentages moeten samen precies 100% zijn; 0% is toegestaan. **Gelijk verdelen** herstelt gelijke percentages (op twee decimalen). Een gewijzigde methodeselectie verdeelt opnieuw gelijk. In de grafieken tellen alleen de toegewezen uren voor geselecteerde methoden mee, ook bij groepering op dag of soort. Het totale aantal studie-uren en de doelvoortgang blijven ongewijzigd.
 
 De optionele JSON-verdeling wordt opgeslagen in `Sheet1!O` (Methodepercentages); een lege cel betekent exact gelijke verdeling. Kolommen J:N met bestaande Notion-gegevens blijven behouden. Voor Tobira moet bij het opslaan een hoofdstuk worden gekozen, bijvoorbeeld `Tobira H1`, in plaats van het algemene `Tobira`.
+
+
+## Leermethodes beheren
+
+In de tab **Leermethodes** voeg je methodes toe en wijzig je naam, tagkleur, optionele omschrijving en groep. Hoofdstukken zoals Tobira H1–H7 staan onder de groep Tobira. Gebruik dezelfde groepsnaam om andere methodes te clusteren. Bestaande methodes zonder groep staan onder Overig. De methodes verschijnen als gekleurde tags bij studie-items en in de keuzelijsten. Tekstkleur wordt automatisch bepaald voor contrast.
+
+De instellingen staan in **Leermethodes** (ID, Naam, Kleur, Omschrijving, Groep, Aliassen, Status). Hernoemen behoudt het ID en bewaart oude namen als aliassen. Eerdere items, methodefilters en Anki-deckkoppelingen gebruiken daarmee de huidige naam, zonder alle historische rijen te herschrijven. Bij het bewerken van zo’n item worden methodenamen en bijbehorende percentages samen bijgewerkt. Archiveren verbergt een methode uit nieuwe keuzes; bestaande registraties en geselecteerde filters blijven behouden. Terugzetten maakt de methode opnieuw beschikbaar.

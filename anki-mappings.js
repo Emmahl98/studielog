@@ -1,3 +1,4 @@
+import {resolveMaterials} from './method-catalog.js?v=21';
 import {materialList} from './materials.js';
 const headers=['Profiel','Deck','Lesmethode'];
 const range=value=>encodeURIComponent(`'AnkiDecks'!${value}`);
@@ -16,7 +17,7 @@ export class AnkiMappingsStore {
     }
     return rows.slice(1).filter(row=>row.some(Boolean));
   }
-  async read(profile){return Object.fromEntries((await this.rows()||[]).filter(row=>row[0]===profile).map(row=>[row[1],row[2]]));}
+  async read(profile){return Object.fromEntries((await this.rows()||[]).filter(row=>row[0]===profile).map(row=>[row[1],resolveMaterials(row[2],this.sheets.methodCatalog||[])]));}
   async save(profile,mappings){
     if(typeof profile!=='string'||!profile)throw Error('Geen Anki-profiel gekozen.');
     for(const [deck,method] of Object.entries(mappings))if(!deck||typeof method!=='string'||!materialList(method).length||method.length>2000)throw Error('Kies lesmethodes per deck (maximaal 2000 tekens).');

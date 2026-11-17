@@ -1,4 +1,6 @@
-import {AnkiMappingsStore} from './anki-mappings.js?v=2';
+import {methodNames} from './method-catalog.js?v=21';
+import {methodTag} from './method-tags.js?v=21';
+import {AnkiMappingsStore} from './anki-mappings.js?v=21';
 import {methodForDeck} from './anki.js?v=3';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id);
@@ -20,7 +22,7 @@ export class AnkiMappingUI {
       const decks=await this.anki.call('deckNames');
       if(!Array.isArray(decks)||decks.some(deck=>typeof deck!=='string'))throw Error('Ongeldige decknamen van AnkiConnect.');
       this.mappings=await this.store.read(this.profile);
-      const methods=[...new Set([...this.options.entries().flatMap(entry=>materialList(entry.materials)),...Object.values(this.mappings).flatMap(materialList)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
+      const methods=methodNames(this.store.sheets.methodCatalog||[],this.options.entries(),Object.values(this.mappings).flatMap(materialList));
       this.selections=new Map();
       for(const deck of [...new Set([...decks,...Object.keys(this.mappings)])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}))){
         const row=document.createElement('section');row.className='anki-deck-row';
@@ -35,7 +37,7 @@ export class AnkiMappingUI {
         const checkboxes=new Map();
         const renderTags=()=>{
           summary.textContent=selected.size?`Lesmethodes kiezen (${selected.size})`:'Lesmethodes kiezen';
-          tags.replaceChildren(...[...selected].map(method=>{const tag=document.createElement('span');tag.className='anki-method-tag';const name=document.createElement('span');name.textContent=method;const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`${method} verwijderen bij ${deck}`);remove.addEventListener('click',()=>{selected.delete(method);checkboxes.get(method).checked=false;renderTags();this.preview();summary.focus();});tag.append(name,remove);return tag;}));
+          tags.replaceChildren(...[...selected].map(method=>{const tag=document.createElement('span');tag.className='anki-method-tag';const name=methodTag(method,this.store.sheets.methodCatalog||[]);const remove=document.createElement('button');remove.type='button';remove.textContent='×';remove.setAttribute('aria-label',`${method} verwijderen bij ${deck}`);remove.addEventListener('click',()=>{selected.delete(method);checkboxes.get(method).checked=false;renderTags();this.preview();summary.focus();});tag.append(name,remove);return tag;}));
         };
         for(const method of methods){
           const label=document.createElement('label');label.className='anki-method-choice';

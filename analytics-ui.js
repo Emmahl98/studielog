@@ -1,3 +1,5 @@
+import {methodNames,resolveMaterials} from './method-catalog.js?v=21';
+import {methodTag} from './method-tags.js?v=21';
 import {displayDate,inputDate} from './dates.js?v=14';
 import {ChartStore,chartData,selectedMethods} from './analytics.js?v=18';
 import {goalColors} from './goal-colors.js?v=13';
@@ -5,7 +7,7 @@ import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
 export class AnalyticsUI{
- constructor(sheets,{setBusy,canMutate}){this.store=new ChartStore(sheets);this.setBusy=setBusy;this.canMutate=canMutate;this.charts=[];this.entries=[];this.loaded=false;this.id=null;this.studyLoaded=false;
+ constructor(sheets,{setBusy,canMutate}){this.store=new ChartStore(sheets);this.sheets=sheets;this.setBusy=setBusy;this.canMutate=canMutate;this.charts=[];this.entries=[];this.loaded=false;this.id=null;this.studyLoaded=false;
   $('new-chart').addEventListener('click',()=>this.edit());$('chart-cancel').addEventListener('click',()=>$('chart-dialog').close());
   $('chart-period').addEventListener('change',()=>this.dates());$('chart-form').addEventListener('submit',e=>{e.preventDefault();this.save();});
   $('chart-delete-cancel').addEventListener('click',()=>$('chart-delete-dialog').close());$('chart-delete-confirm').addEventListener('click',async()=>{if(await this.mutate(()=>this.store.remove(this.deleting),'Grafiek verwijderd.'))$('chart-delete-dialog').close();});
@@ -19,12 +21,13 @@ export class AnalyticsUI{
  setEntries(entries,loaded){this.entries=entries;this.studyLoaded=loaded;this.render();}
  reset(){this.charts=[];this.highlight=null;this.loaded=false;this.entries=[];this.studyLoaded=false;for(const id of ['chart-dialog','chart-delete-dialog'])if($(id).open)$(id).close();this.render();this.message('Je grafieken worden in Google Sheets bewaard.');}
  async refresh(){try{this.charts=await this.store.read();this.loaded=true;this.render();}catch(e){this.charts=[];this.loaded=false;this.render();this.message(e.message,true);}}
- methods(){return [...new Set(this.entries.flatMap(e=>materialList(e.materials)))].sort((a,b)=>a.localeCompare(b,'nl'));}
- edit(chart=null){if(!this.canMutate()||!this.loaded)return;this.id=chart?.id||crypto.randomUUID();$('chart-editor-title').textContent=chart?'Grafiek wijzigen':'Nieuwe grafiek';$('chart-name').value=chart?.name||'';$('chart-period').value=chart?.period||'7';$('chart-group').value=chart?.group||'day';$('chart-view').value=chart?.view||'bar';$('chart-sort').value=chart?.sort||'';$('chart-goal-colors').checked=!!chart?.goalColors;$('chart-from').value=displayDate(chart?.from||'');$('chart-to').value=displayDate(chart?.to||'');
+ methods(){return methodNames(this.sheets.methodCatalog||[],this.entries);}
+ canonical(chart){return {...chart,method:JSON.stringify([...new Set(selectedMethods(chart.method).flatMap(m=>materialList(resolveMaterials(m,this.sheets.methodCatalog||[]))))])};}
+ edit(chart=null){if(chart)chart=this.canonical(chart);if(!this.canMutate()||!this.loaded)return;this.id=chart?.id||crypto.randomUUID();$('chart-editor-title').textContent=chart?'Grafiek wijzigen':'Nieuwe grafiek';$('chart-name').value=chart?.name||'';$('chart-period').value=chart?.period||'7';$('chart-group').value=chart?.group||'day';$('chart-view').value=chart?.view||'bar';$('chart-sort').value=chart?.sort||'';$('chart-goal-colors').checked=!!chart?.goalColors;$('chart-from').value=displayDate(chart?.from||'');$('chart-to').value=displayDate(chart?.to||'');
   const selected=selectedMethods(chart?.method||'');
   const options=[...new Set([...this.methods(),...selected])];
   $('chart-method').replaceChildren();
-  for(const method of options){const label=node('label','chart-method-option'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);label.append(input,document.createTextNode(method));$('chart-method').append(label);}
+  for(const method of options){const label=node('label','chart-method-option'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);label.append(input,methodTag(method,this.sheets.methodCatalog||[]));$('chart-method').append(label);}
   if(!options.length)$('chart-method').append(node('p','goal-feedback','Nog geen methoden ingevuld.'));
   $('chart-error').hidden=true;this.dates();$('chart-dialog').showModal();}
  async mutate(action,message){if(!this.canMutate()||!this.loaded)return false;this.saving=true;this.setBusy(true);try{await action();this.charts=await this.store.read();this.render();this.message(message);return true;}catch(e){this.message(e.message,true);$('chart-error').textContent=e.message;$('chart-error').hidden=false;return false;}finally{this.saving=false;this.setBusy(false);}}
@@ -33,7 +36,7 @@ export class AnalyticsUI{
   const list=$('data-charts');list.replaceChildren();const charts=this.charts.filter(c=>c.status==='actief');
   if(!this.studyLoaded){list.append(node('p','notes-empty','Verbind met Google om je studiedata te bekijken.'));return;}
   if(!charts.length){list.append(node('p','notes-empty','Nog geen grafieken. Kies ‘Grafiek toevoegen’ om je eerste grafiek te maken.'));return;}
-  for(const chart of charts){const data=chartData(this.entries,chart),card=node('article','chart-card'),head=node('div','chart-heading');head.append(node('h3','',chart.name));const actions=node('div','goal-actions');
+  for(const original of charts){const chart=this.canonical(original);const data=chartData(this.entries,chart),card=node('article','chart-card'),head=node('div','chart-heading');head.append(node('h3','',chart.name));const actions=node('div','goal-actions');
    for(const [label,action] of [['Wijzigen',()=>this.edit(chart)],['Verwijderen',()=>{if(!this.canMutate())return;this.deleting=chart.id;$('chart-delete-name').textContent=chart.name;$('chart-delete-dialog').showModal();}]]){const b=node('button','text-button',label);b.type='button';b.dataset.chartAction='';b.setAttribute('aria-label',`${label}: ${chart.name}`);b.addEventListener('click',action);actions.append(b);}head.append(actions);card.append(head,node('p','chart-total',`${fmt.format(data.hours)} uur · ${data.count} ${data.count===1?'item':'items'}`),node('p','goal-feedback',`${displayDate(data.from)} t/m ${displayDate(data.to)}${selectedMethods(chart.method).length?' · '+selectedMethods(chart.method).join(', '):''}`));
    let colored;
    if(chart.goalColors){colored=goalColors(this.entries,this.highlight,data);if(colored.status){card.classList.add(`goal-card-${colored.status}`);data.points=colored.points;card.append(node('p','chart-goal-legend',`Highlight: ${this.highlight.name} · huidig dagtempo ${fmt.format(colored.target)} uur. Gemiddeld ${fmt.format(colored.average)} uur per dag over ${colored.days} dagen: ${colored.status==='green'?'op schema':'onder dagtempo'}. Groen = op/boven tempo, oranje = eronder.`));}else card.append(node('p','goal-feedback',colored.message));}

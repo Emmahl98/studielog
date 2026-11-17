@@ -1,11 +1,14 @@
-import {AnkiMappingUI} from './anki-mapping-ui.js?v=3';
+import {MethodsUI} from './methods-ui.js?v=21';
+import {methodNames,methodInfo,resolveMaterials} from './method-catalog.js?v=21';
+import {methodTag} from './method-tags.js?v=21';
+import {AnkiMappingUI} from './anki-mapping-ui.js?v=21';
 import {AnkiConnect,syncAnki} from './anki.js?v=3';
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=18';
-import {WeightsUI} from './weights-ui.js?v=18';
+import {AnalyticsUI} from './analytics-ui.js?v=21';
+import {WeightsUI} from './weights-ui.js?v=21';
 import {materialList} from './materials.js';
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=19';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=21';
 import {studyProgress,validGoal} from './progress.js?v=5';
 import {GoalsStore} from './goals.js?v=13';
 import {goalSchedule} from './goal-schedule.js?v=8';
@@ -15,7 +18,7 @@ const $=id=>document.getElementById(id);
 let token='', expiresAt=0, entries=[], filter='all', busy=false, loaded=false, pending=null, editingId=null;
 let goal=null,goalLoaded=false,goalSaving=false;
 let goals=[],selectedGoalId='',editingGoalId=null,pendingGoalId=null,deletingGoalId=null;
-let noteSaving=false,chartSaving=false,highlightedGoalId='';
+let noteSaving=false,chartSaving=false,methodSaving=false,highlightedGoalId='';
 const hoursFormatter=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 const storageKey='studielog.google-client-id';
 const readClientId=()=>{ try {return localStorage.getItem(storageKey)||config.clientId;} catch{return config.clientId;} };
@@ -26,13 +29,19 @@ const previousSession=restoreSession(sessionStorageAvailable,clientId);
 if(previousSession){token=previousSession.token;expiresAt=previousSession.expiresAt;}
 const store=new SheetsStore(config,()=>Date.now()<expiresAt ? token : '');
 const goalsStore=new GoalsStore(store);
-const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
-const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving});
+const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving});
+const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving});
+
+const methodsUI=new MethodsUI(store,{
+ canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving,
+ setBusy:value=>{methodSaving=value;updateConnection();},
+ afterChange:async()=>{weightsUI.renameMethods(methodsUI.catalog);$('materials').value=resolveMaterials($('materials').value,methodsUI.catalog);entries=await store.read();render();analyticsUI.render();}
+});
 
 const anki=new AnkiConnect();
 const ankiKey='studielog.anki-enabled';
 const ankiMappingUI=new AnkiMappingUI(store,anki,{
-  canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving,
+  canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving,
   entries:()=>entries,
   setBusy:value=>{chartSaving=value;updateConnection();},
   checkProfile:profile=>{if(typeof profile!=='string'||!profile||(ankiProfile&&ankiProfile!==profile))throw Error('Open het gekoppelde Anki-profiel.');},
@@ -44,7 +53,7 @@ if($('anki-enabled'))$('anki-enabled').checked=ankiEnabled;
 async function refreshAnki(manual=false){
   if(!$('anki-enabled')||(!ankiEnabled&&!manual))return;
   if(!token||Date.now()>=expiresAt||!loaded){if(manual)$('anki-status').textContent='Verbind eerst met Google en laad je studieoverzicht.';return;}
-  if(busy||goalSaving||noteSaving||chartSaving)return;
+  if(busy||goalSaving||noteSaving||chartSaving||methodSaving)return;
   busy=true;updateConnection();$('anki-sync').disabled=true;
   $('anki-status').textContent='Anki-activiteit ophalen…';
   try{
@@ -76,7 +85,7 @@ $('today-label').textContent=displayDate(localDate());
 $('origin').textContent=location.origin;
 function notify(message, error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);$('notice').hidden=!message;}
 function updateConnection(){
-  const locked=busy||goalSaving||noteSaving||chartSaving;
+  const locked=busy||goalSaving||noteSaving||chartSaving||methodSaving;
   const connected=!!token && Date.now()<expiresAt;
   $('anki-map-open').disabled=!connected||locked||!loaded;
   if(token && !connected){token='';expiresAt=0;clearSession(sessionStorageAvailable);}
@@ -104,22 +113,23 @@ function updateConnection(){
   $('close-goal-editor').disabled=locked;
   $('confirm-delete-goal').disabled=locked;
   $('cancel-delete-goal').disabled=locked;
-  notesUI.updateDisabled(connected,locked);analyticsUI.updateDisabled(connected,locked);
+  notesUI.updateDisabled(connected,locked);analyticsUI.updateDisabled(connected,locked);methodsUI.updateDisabled(connected,locked);
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
 function renderMaterials(){
   const selected=materialList($('materials').value);
-  const options=[...new Set([...entries.flatMap(e=>materialList(e.materials)),...selected])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
+  const options=methodNames(methodsUI.catalog,entries,selected);
   $('material-options').replaceChildren();
-  for(const method of options){const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();weightsUI.selectionChanged();});label.append(input,document.createTextNode(method));$('material-options').append(label);}
+  let lastGroup='';
+  for(const method of options){const group=methodInfo(method,methodsUI.catalog).group||'Overig';if(group!==lastGroup){$('material-options').append(node('p','method-picker-group',group));lastGroup=group;}const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving||methodSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();weightsUI.selectionChanged();});label.append(input,methodTag(method,methodsUI.catalog));$('material-options').append(label);}
   if(!options.length)$('material-options').append(node('p','goal-feedback','Nog geen methoden. Voeg hieronder je eerste methode toe.'));
   updateMaterialsSummary();
 }
-function updateMaterialsSummary(){const selected=materialList($('materials').value);$('materials-summary').textContent=selected.length?selected.join(', '):'Selecteer studieboeken / methoden';}
+function updateMaterialsSummary(){const selected=materialList($('materials').value);$('materials-summary').replaceChildren(...(selected.length?selected.map(m=>methodTag(m,methodsUI.catalog)):[document.createTextNode('Selecteer studieboeken / methoden')]));}
 function addMaterial(){
-  if(busy||goalSaving||noteSaving||chartSaving)return;
-  const added=materialList($('new-material').value);if(!added.length)return;
+  if(busy||goalSaving||noteSaving||chartSaving||methodSaving)return;
+  const added=materialList(resolveMaterials($('new-material').value,methodsUI.catalog));if(!added.length)return;
   const value=[...new Set([...materialList($('materials').value),...added])].join(', ');
   if(value.length>2000){$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}
   $('materials').value=value;$('new-material').value='';$('material-error').hidden=true;renderMaterials();weightsUI.selectionChanged();
@@ -128,7 +138,7 @@ $('add-material').addEventListener('click',addMaterial);
 $('new-material').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addMaterial();}});
 function render(){
   renderProgress();
-  analyticsUI.setEntries(entries,loaded);
+  analyticsUI.setEntries(entries,loaded);methodsUI.setEntries(entries);
   renderMaterials();
   $('entries').replaceChildren();$('total-count').textContent=entries.length;
   const groups=groupEntries(entries,filter);
@@ -142,7 +152,7 @@ function render(){
     for(const item of items){
       const article=node('article','entry');const body=node('div','entry-body');
       const toggle=node('button','entry-details-toggle',item.subject);toggle.type='button';toggle.setAttribute('aria-expanded','false');body.append(toggle);
-      if(item.materials)body.append(node('p','entry-materials',item.weights?materialList(item.materials).map(m=>`${m} (${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2}).format(item.weights[m])}%)`).join(', '):item.materials));
+      if(item.materials){const tags=node('div','entry-method-tags');for(const method of materialList(item.materials))tags.append(methodTag(method,methodsUI.catalog,item.weights?item.weights[method]:undefined));body.append(tags);}
       body.append(node('span','entry-duration',item.minutes===null?'Duur niet ingevuld':`${new Intl.NumberFormat('nl-NL').format(item.minutes)} min`));
       const created=node('p','entry-created');created.hidden=true;
       const createdDate=item.createdAt?new Date(item.createdAt):null;
@@ -249,7 +259,7 @@ function finishEdit(clear=false){
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){
   busy=true;updateConnection();$('entries').setAttribute('aria-busy','true');
-  try{entries=await store.read();loaded=true;render();await refreshGoal();await notesUI.refresh();await analyticsUI.refresh();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
+  try{await methodsUI.refresh();entries=await store.read();loaded=true;render();await refreshGoal();await notesUI.refresh();await analyticsUI.refresh();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
   catch(error){notify(error.message,true);}
   finally{busy=false;updateConnection();$('entries').setAttribute('aria-busy','false');if(loaded)refreshAnki();}
 }
@@ -260,7 +270,7 @@ $('settings-form').addEventListener('submit',event=>{
   event.preventDefault();const next=$('client-id').value.trim();
   if(!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(next)){$('settings-error').textContent='Vul een geldige Google OAuth-client-ID in.';$('settings-error').hidden=false;return;}
   try{localStorage.setItem(storageKey,next);}catch{notify('Instelling geldt voor deze pagina. Je browser kon deze niet onthouden.');}
-  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();finishEdit(true);render();}
+  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();finishEdit(true);render();}
   clientId=next;$('settings').close();updateConnection();notify('');
 });
 $('connect').addEventListener('click',()=>{
@@ -271,12 +281,12 @@ $('connect').addEventListener('click',()=>{
     if(!google.accounts.oauth2.hasGrantedAllScopes(result,'https://www.googleapis.com/auth/spreadsheets')){notify('Geef toestemming voor Google Sheets om je studiedagboek te gebruiken.',true);return;}
     token=result.access_token;expiresAt=Date.now()+Number(result.expires_in)*1000-30000;
     saveSession(sessionStorageAvailable,{clientId,token,expiresAt});
-    entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();render();
+    entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();render();
     notify('');await refresh(false);
   },error_callback:()=>notify('Het Google-inlogvenster is gesloten of geblokkeerd. Sta pop-ups toe en probeer opnieuw.',true)});
   client.requestAccessToken({prompt:''});
 });
-$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();finishEdit(true);render();updateConnection();notify('');});
+$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();finishEdit(true);render();updateConnection();notify('');});
 $('refresh').addEventListener('click',()=>refresh());
 $('subject').addEventListener('input',()=>{$('char-count').textContent=`${$('subject').value.length} / 2000`;});
 document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();}));
@@ -303,17 +313,14 @@ $('entry-form').addEventListener('submit',async event=>{
 });
 setInterval(updateConnection,15000);
 function showPage(page){
- const isNotes=page==='notes',isData=page==='data';
- document.querySelectorAll('[data-overview-panel]').forEach(panel=>panel.hidden=isNotes||isData);
- $('notes-panel').hidden=!isNotes;$('data-panel').hidden=!isData;
- for(const [id,key] of [['overview-tab','overview'],['notes-tab','notes'],['data-tab','data']])$(id).setAttribute('aria-pressed',String(page===key));
- document.querySelector('h1').textContent=isNotes?'Studienotities':isData?'Mijn studiedata':'Wat heb je geleerd?';
- history.replaceState(null,'',isNotes?'#notities':isData?'#data':location.pathname);
+ document.querySelectorAll('[data-overview-panel]').forEach(panel=>panel.hidden=page!=='overview');
+ $('notes-panel').hidden=page!=='notes';$('data-panel').hidden=page!=='data';$('methods-panel').hidden=page!=='methods';
+ for(const [id,key] of [['overview-tab','overview'],['notes-tab','notes'],['data-tab','data'],['methods-tab','methods']])$(id).setAttribute('aria-pressed',String(page===key));
+ document.querySelector('h1').textContent={notes:'Studienotities',data:'Mijn studiedata',methods:'Mijn leermethodes',overview:'Wat heb je geleerd?'}[page];
+ history.replaceState(null,'',{notes:'#notities',data:'#data',methods:'#leermethodes',overview:location.pathname}[page]);
 }
-$('overview-tab').addEventListener('click',()=>showPage('overview'));
-$('notes-tab').addEventListener('click',()=>showPage('notes'));
-$('data-tab').addEventListener('click',()=>showPage('data'));
-showPage(location.hash==='#notities'?'notes':location.hash==='#data'?'data':'overview');
+for(const [id,page] of [['overview-tab','overview'],['notes-tab','notes'],['data-tab','data'],['methods-tab','methods']])$(id).addEventListener('click',()=>showPage(page));
+showPage(location.hash==='#notities'?'notes':location.hash==='#data'?'data':location.hash==='#leermethodes'?'methods':'overview');
 updateConnection();
 if(previousSession)refresh(false);
 

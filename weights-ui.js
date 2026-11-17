@@ -1,9 +1,11 @@
+import {methodInfo} from './method-catalog.js?v=21';
 import {materialList} from './materials.js';
 import {equalPercentages,validateWeights} from './weights.js';
 const $=id=>document.getElementById(id);
 export class WeightsUI{
  constructor(){this.methods=[];$('custom-weights').addEventListener('change',()=>this.render());$('equal-weights').addEventListener('click',()=>this.render());this.set(null);}
  set(entry){this.methods=materialList(entry?.materials);$('custom-weights').checked=!!entry?.weights;this.render(entry?.weights);}
+ renameMethods(catalog){this.methods=this.methods.map(m=>methodInfo(m,catalog).name);for(const field of $('method-weights').querySelectorAll('input')){const name=methodInfo(field.dataset.method,catalog).name;field.dataset.method=name;field.setAttribute('aria-label',name+' percentage');field.parentElement.firstChild.textContent=name;}}
  selectionChanged(){this.methods=materialList($('materials').value);this.render();}
  render(weights=null){
   const custom=$('custom-weights').checked;$('weights-fields').hidden=!custom;$('method-weights').replaceChildren();

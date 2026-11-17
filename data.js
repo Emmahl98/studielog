@@ -1,3 +1,4 @@
+import {resolveEntry} from './method-catalog.js?v=21';
 import {parseWeights,validateWeights} from './weights.js';
 import {materialList} from './materials.js';
 export const HEADERS = ['Datum', 'Label', 'Onderwerp', 'ID', 'Aangemaakt', 'Naam', 'Minuten', 'Uren', 'Lesmateriaal'];
@@ -74,7 +75,7 @@ export class SheetsStore {
     const rows=result.values || [];
     if (rows.length===0) throw new Error('De spreadsheet is nog niet ingericht. Voeg eerst de kolommen Datum, Label, Onderwerp, ID en Aangemaakt toe.');
     if (!HEADERS.every((header,index)=>rows[0][index]===header)) throw new Error('De kolommen in de spreadsheet zijn gewijzigd. Verwacht: '+HEADERS.join(', ')+'.');
-    return parseRows(rows.slice(1));
+    return parseRows(rows.slice(1)).map(entry=>resolveEntry(entry,this.methodCatalog||[]));
   }
   async add(entry) {
     validateEntry(entry);
@@ -92,8 +93,8 @@ export class SheetsStore {
     await this.request('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data:[
       {range:`'${this.config.sheetName.replaceAll("'","''")}'!A${row}:C${row}`,values:[[entry.date,entry.type,entry.subject]]},
       {range:`'${this.config.sheetName.replaceAll("'","''")}'!G${row}:H${row}`,values:[[entry.minutes,Math.round(entry.minutes/60*10)/10]]},
-      ...(entry.weights!==undefined&&JSON.stringify(entry.weights)!==JSON.stringify(matches[0].weights)?[{range:`'${this.config.sheetName.replaceAll("'","''")}'!O${row}:O${row}`,values:[[entry.weights?JSON.stringify(entry.weights):'']]}]:[]),
-      ...(entry.materials!==undefined&&entry.materials!==matches[0].materials?[{range:`'${this.config.sheetName.replaceAll("'","''")}'!I${row}:I${row}`,values:[[entry.materials]]}]:[])
+      ...(entry.weights!==undefined&&JSON.stringify(entry.weights)!==JSON.stringify(matches[0].sourceWeights??matches[0].weights)?[{range:`'${this.config.sheetName.replaceAll("'","''")}'!O${row}:O${row}`,values:[[entry.weights?JSON.stringify(entry.weights):'']]}]:[]),
+      ...(entry.materials!==undefined&&entry.materials!==(matches[0].sourceMaterials??matches[0].materials)?[{range:`'${this.config.sheetName.replaceAll("'","''")}'!I${row}:I${row}`,values:[[entry.materials]]}]:[])
     ]})});
   }
 }

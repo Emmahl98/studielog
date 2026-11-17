@@ -136,6 +136,10 @@ function addMaterial(){
 }
 $('add-material').addEventListener('click',addMaterial);
 $('new-material').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();addMaterial();}});
+function entryBadge(type){
+ const lesson=type==='les',badge=node('span',`badge ${type}`,lesson?'Les':'Sessie');badge.setAttribute('aria-label',lesson?'Les: les gevolgd':'Sessie: zelfstudie');badge.title=lesson?'Les gevolgd':'Zelf gestudeerd';
+ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','2');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',lesson?'M12 6v15M3 3h5a4 4 0 0 1 4 3 4 4 0 0 1 4-3h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z':'M16 3l5 5M4 15 17 2l5 5L9 20l-6 1Z');svg.append(path);badge.prepend(svg);return badge;
+}
 function render(){
   renderProgress();
   analyticsUI.setEntries(entries,loaded);methodsUI.setEntries(entries);
@@ -163,7 +167,7 @@ function render(){
       body.append(created);
       article.addEventListener('click',event=>{if(event.target.closest('.edit-entry'))return;created.hidden=!created.hidden;toggle.setAttribute('aria-expanded',String(!created.hidden));});
       const edit=node('button','text-button edit-entry','Bewerken');edit.type='button';edit.dataset.editable=String(!!item.id);edit.setAttribute('aria-label',`Bewerken: ${item.subject}`);edit.disabled=busy || !item.id;edit.addEventListener('click',()=>startEdit(item));
-      article.append(node('span',`badge ${item.type}`,item.type),body,edit);section.append(article);
+      article.append(entryBadge(item.type),body,edit);section.append(article);
     }
     $('entries').append(section);
   }

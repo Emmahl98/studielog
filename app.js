@@ -158,6 +158,7 @@ function render(){
       const toggle=node('button','entry-details-toggle',item.subject);toggle.type='button';toggle.setAttribute('aria-expanded','false');body.append(toggle);
       if(item.materials){const tags=node('div','entry-method-tags');for(const method of materialList(item.materials))tags.append(methodTag(method,methodsUI.catalog,item.weights?item.weights[method]:undefined));body.append(tags);}
       body.append(node('span','entry-duration',item.minutes===null?'Duur niet ingevuld':`${new Intl.NumberFormat('nl-NL').format(item.minutes)} min`));
+      if(/^anki-daily-\d{4}-\d{2}-\d{2}$/.test(item.id||'')){const source=node('span','anki-import-badge');const icon=node('span','anki-import-icon','↻');icon.setAttribute('aria-hidden','true');source.append(icon,document.createTextNode('Anki-import'));source.title='Automatisch geïmporteerd uit Anki; wordt bij synchroniseren bijgewerkt.';body.append(source);}
       const created=node('p','entry-created');created.hidden=true;
       const createdDate=item.createdAt?new Date(item.createdAt):null;
       if(createdDate&&!Number.isNaN(createdDate.getTime())){

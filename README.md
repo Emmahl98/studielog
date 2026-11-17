@@ -82,3 +82,10 @@ De instellingen staan in **Leermethodes** (ID, Naam, Kleur, Omschrijving, Groep,
 Via **Groep bewerken** naast een groepsnaam wijzig je de naam, kleur en leden. **Groep toevoegen** maakt een groep met de aangevinkte methodes. Een bestaande groepsnaam gebruiken voegt groepen samen. De groepskleur geldt voor alle leden, inclusief gearchiveerde methodes en eerdere studie-items; nieuwe methodes die aan de groep worden toegewezen nemen deze kleur over. **Groep opheffen** zet de leden onder Overig; methodes, kleuren en studie-items blijven behouden.
 
 **Anki koppelen** staat onder **Instellingen**, met automatisch bijwerken, Nu bijwerken en de deckkoppelingen.
+
+
+## Volgorde in Data
+
+Sleep aan **⠿** om de secties Mijn doelen en Mijn grafieken te verplaatsen, of om doel- en grafiekkaarten binnen hun eigen onderdeel te ordenen. Dit werkt met muis en aanraking; focus de sleepgreep en gebruik pijl omhoog/omlaag of Home/End voor toetsenbordbediening. Bij doelen klapt Overige doelen tijdens verplaatsen open. De eerste drie doelen blijven na sorteren bovenaan zichtbaar. Escape annuleert een sleepactie.
+
+De indeling wordt opgeslagen in het aparte tabblad **DataIndeling** (Onderdeel, Volgorde), met JSON-lijsten voor sections, goals en charts. Dit tabblad wordt bij de eerste wijziging atomair aangemaakt. De volgorde wordt op andere apparaten ingelezen na verbinden/vernieuwen. Nieuwe kaarten komen achteraan; onbekende of gearchiveerde IDs beschadigen de weergave niet. Een mislukte opslag herstelt de laatst bewaarde volgorde en toont een foutmelding.

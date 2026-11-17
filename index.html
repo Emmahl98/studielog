@@ -7,9 +7,9 @@
   <meta name="description" content="Je eigen studiedagboek. Houd per dag bij wat je hebt geleerd.">
   <title>Studielog · Mijn studiedagboek</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./style.css?v=24">
+  <link rel="stylesheet" href="./style.css?v=25">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script type="module" src="./app.js?v=24"></script>
+  <script type="module" src="./app.js?v=25"></script>
   <link rel="stylesheet" href="./anki-mapping.css?v=1">
 </head>
 <body>
@@ -56,15 +56,15 @@
       <div class="entry-card"><h2 id="note-form-title">Nieuwe notitie</h2><form id="note-form"><label for="note-title">Titel (optioneel)</label><input id="note-title" type="text" maxlength="100" placeholder="Bijvoorbeeld: handige grammaticasites"><label for="note-body">Notitie of links</label><textarea id="note-body" rows="7" maxlength="5000" placeholder="Schrijf je notitie of plak een link…" required></textarea><button id="save-note" type="submit" class="button primary" disabled>Notitie opslaan</button><button id="cancel-note-edit" type="button" class="text-button cancel-edit" hidden>Bewerken annuleren</button><p id="note-feedback" class="goal-feedback" role="status" aria-live="polite">Je notities worden in Google Sheets bewaard.</p></form></div>
       <div class="notes-overview"><h2 id="notes-title">Studienotities</h2><label for="note-search" class="search-label">Zoek notities</label><input id="note-search" type="search" placeholder="Zoek op tekst, titel of link"><div class="filters" aria-label="Notities filteren"><button type="button" id="active-notes" aria-pressed="true">Actief</button><button type="button" id="archived-notes" aria-pressed="false">Archief</button></div><p id="notes-count" class="goal-feedback"></p><div id="notes-list"></div></div>
     </section>
-    <section id="data-panel" hidden aria-labelledby="data-title">
-    <section id="overview-goals" class="goals-area" aria-labelledby="goals-heading">
+    <section id="data-panel" hidden aria-labelledby="data-title"><p id="layout-feedback" class="goal-feedback" role="status" aria-live="polite">Verbind met Google om de volgorde te bewaren.</p>
+    <section id="overview-goals" class="goals-area" aria-labelledby="goals-heading" data-order-kind="sections" data-order-id="goals">
       <div class="goals-heading"><h2 id="goals-heading">Mijn doelen</h2><div class="goals-heading-actions"><button type="button" id="open-goal-archive" class="button secondary" disabled>Archief (0)</button><button type="button" id="new-goal" class="button secondary" disabled>Nieuw doel</button></div></div>
       <p id="goals-empty" class="goal-feedback">Verbind met Google om je doelen te zien.</p><div id="goal-cards" class="goals-grid"></div>
       <details id="more-goals" hidden><summary id="more-goals-title">Overige doelen (0)</summary><div id="overflow-goals" class="goals-grid"></div></details>
       <p id="goal-feedback" class="goal-feedback" role="status" aria-live="polite">Je doelen worden in Google Sheets bewaard.</p>
 
     </section>
-<div class="goals-heading"><h2 id="data-title">Mijn grafieken</h2><button id="new-chart" type="button" class="button secondary" disabled>Grafiek toevoegen</button></div><p id="data-feedback" class="goal-feedback" role="status">Je grafieken worden in Google Sheets bewaard.</p><div id="data-charts" class="data-charts"></div></section>
+<section id="overview-charts" class="dashboard-charts" data-order-kind="sections" data-order-id="charts" aria-labelledby="data-title"><div class="goals-heading"><h2 id="data-title">Mijn grafieken</h2><button id="new-chart" type="button" class="button secondary" disabled>Grafiek toevoegen</button></div><p id="data-feedback" class="goal-feedback" role="status">Je grafieken worden in Google Sheets bewaard.</p><div id="data-charts" class="data-charts"></div></section></section>
     <section id="methods-panel" hidden aria-labelledby="methods-title"><div class="goals-heading"><div><h2 id="methods-title">Leermethodes</h2><p class="goal-feedback">Beheer je gekleurde tags en groepeer hoofdstukken onder een boek.</p></div><div class="goals-heading-actions"><button id="new-group" type="button" class="button secondary" disabled>Groep toevoegen</button><button id="new-method" type="button" class="button secondary" disabled>Leermethode toevoegen</button></div></div><div class="methods-tools"><label class="method-search-label" for="method-search">Zoek leermethodes<input id="method-search" type="search" placeholder="Zoek op naam, groep of omschrijving"></label><label class="material-choice"><input id="show-archived-methods" type="checkbox"> Toon gearchiveerde methodes</label></div><p id="methods-feedback" class="goal-feedback" role="status" aria-live="polite">Wijzigingen worden in Google Sheets bewaard.</p><div id="methods-list"></div></section>
     <footer><span>Een klein moment. Een stap vooruit.</span><a href="https://docs.google.com/spreadsheets/d/1ck_neDZ12EwJypQUquVR9ucOa9MlX-wG37GAk5USJG8/edit" target="_blank" rel="noopener noreferrer">Open mijn spreadsheet ↗</a></footer>
   </main>

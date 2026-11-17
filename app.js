@@ -1,10 +1,11 @@
+import {DashboardLayout} from './dashboard-ui.js?v=25';
 import {MethodsUI} from './methods-ui.js?v=22';
 import {methodNames,methodInfo,resolveMaterials} from './method-catalog.js?v=22';
 import {methodTag} from './method-tags.js?v=22';
 import {AnkiMappingUI} from './anki-mapping-ui.js?v=21';
 import {AnkiConnect,syncAnki} from './anki.js?v=3';
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=21';
+import {AnalyticsUI} from './analytics-ui.js?v=25';
 import {WeightsUI} from './weights-ui.js?v=21';
 import {materialList} from './materials.js';
 import {config} from './config.js';
@@ -18,7 +19,7 @@ const $=id=>document.getElementById(id);
 let token='', expiresAt=0, entries=[], filter='all', busy=false, loaded=false, pending=null, editingId=null;
 let goal=null,goalLoaded=false,goalSaving=false;
 let goals=[],selectedGoalId='',editingGoalId=null,pendingGoalId=null,deletingGoalId=null;
-let noteSaving=false,chartSaving=false,methodSaving=false,highlightedGoalId='';
+let noteSaving=false,chartSaving=false,methodSaving=false,layoutSaving=false,layoutDragging=false,highlightedGoalId='';
 const hoursFormatter=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 const storageKey='studielog.google-client-id';
 const readClientId=()=>{ try {return localStorage.getItem(storageKey)||config.clientId;} catch{return config.clientId;} };
@@ -29,11 +30,18 @@ const previousSession=restoreSession(sessionStorageAvailable,clientId);
 if(previousSession){token=previousSession.token;expiresAt=previousSession.expiresAt;}
 const store=new SheetsStore(config,()=>Date.now()<expiresAt ? token : '');
 const goalsStore=new GoalsStore(store);
-const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving});
-const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving});
+const notesUI=new NotesUI(store,{setBusy:value=>{noteSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving&&!layoutSaving&&!layoutDragging});
+const analyticsUI=new AnalyticsUI(store,{setBusy:value=>{chartSaving=value;updateConnection();},canMutate:()=>!!token&&Date.now()<expiresAt&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving&&!layoutSaving&&!layoutDragging});
+
+const dashboard=new DashboardLayout(store,{
+ canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&dashboard.loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving&&!layoutSaving,
+ setBusy:value=>{layoutSaving=value;updateConnection();},setDragging:value=>{layoutDragging=value;updateConnection();},
+ render:()=>{renderGoalControls();analyticsUI.render();}
+});
+analyticsUI.layout=dashboard;
 
 const methodsUI=new MethodsUI(store,{
- canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving,
+ canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving&&!layoutSaving&&!layoutDragging,
  setBusy:value=>{methodSaving=value;updateConnection();},
  afterChange:async()=>{weightsUI.renameMethods(methodsUI.catalog);$('materials').value=resolveMaterials($('materials').value,methodsUI.catalog);entries=await store.read();render();analyticsUI.render();}
 });
@@ -41,7 +49,7 @@ const methodsUI=new MethodsUI(store,{
 const anki=new AnkiConnect();
 const ankiKey='studielog.anki-enabled';
 const ankiMappingUI=new AnkiMappingUI(store,anki,{
-  canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving,
+  canMutate:()=>!!token&&Date.now()<expiresAt&&loaded&&!busy&&!goalSaving&&!noteSaving&&!chartSaving&&!methodSaving&&!layoutSaving&&!layoutDragging,
   entries:()=>entries,
   setBusy:value=>{chartSaving=value;updateConnection();},
   checkProfile:profile=>{if(typeof profile!=='string'||!profile||(ankiProfile&&ankiProfile!==profile))throw Error('Open het gekoppelde Anki-profiel.');},
@@ -53,7 +61,7 @@ if($('anki-enabled'))$('anki-enabled').checked=ankiEnabled;
 async function refreshAnki(manual=false){
   if(!$('anki-enabled')||(!ankiEnabled&&!manual))return;
   if(!token||Date.now()>=expiresAt||!loaded){if(manual)$('anki-status').textContent='Verbind eerst met Google en laad je studieoverzicht.';return;}
-  if(busy||goalSaving||noteSaving||chartSaving||methodSaving)return;
+  if(busy||goalSaving||noteSaving||chartSaving||methodSaving||layoutSaving||layoutDragging)return;
   busy=true;updateConnection();$('anki-sync').disabled=true;
   $('anki-status').textContent='Anki-activiteit ophalen…';
   try{
@@ -85,7 +93,7 @@ $('today-label').textContent=displayDate(localDate());
 $('origin').textContent=location.origin;
 function notify(message, error=false){$('notice').textContent=message;$('notice').classList.toggle('error',error);$('notice').hidden=!message;}
 function updateConnection(){
-  const locked=busy||goalSaving||noteSaving||chartSaving||methodSaving;
+  const locked=busy||goalSaving||noteSaving||chartSaving||methodSaving||layoutSaving||layoutDragging;
   const connected=!!token && Date.now()<expiresAt;
   $('anki-map-open').disabled=!connected||locked||!loaded;
   if(token && !connected){token='';expiresAt=0;clearSession(sessionStorageAvailable);}
@@ -113,7 +121,7 @@ function updateConnection(){
   $('close-goal-editor').disabled=locked;
   $('confirm-delete-goal').disabled=locked;
   $('cancel-delete-goal').disabled=locked;
-  notesUI.updateDisabled(connected,locked);analyticsUI.updateDisabled(connected,locked);methodsUI.updateDisabled(connected,locked);
+  notesUI.updateDisabled(connected,locked);analyticsUI.updateDisabled(connected,locked);methodsUI.updateDisabled(connected,locked);dashboard.updateDisabled(connected,busy||goalSaving||noteSaving||chartSaving||methodSaving||layoutSaving);
   $('save-hint').textContent=connected?'Opgeslagen in je eigen Google Sheets.':'Verbind eerst met Google om op te slaan.';
 }
 function node(tag,className,text){const element=document.createElement(tag);if(className)element.className=className;if(text!==undefined)element.textContent=text;return element;}
@@ -122,13 +130,13 @@ function renderMaterials(){
   const options=methodNames(methodsUI.catalog,entries,selected);
   $('material-options').replaceChildren();
   let lastGroup='';
-  for(const method of options){const group=methodInfo(method,methodsUI.catalog).group||'Overig';if(group!==lastGroup){$('material-options').append(node('p','method-picker-group',group));lastGroup=group;}const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving||methodSaving;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();weightsUI.selectionChanged();});label.append(input,methodTag(method,methodsUI.catalog));$('material-options').append(label);}
+  for(const method of options){const group=methodInfo(method,methodsUI.catalog).group||'Overig';if(group!==lastGroup){$('material-options').append(node('p','method-picker-group',group));lastGroup=group;}const label=node('label','material-choice'),input=node('input');input.type='checkbox';input.value=method;input.checked=selected.includes(method);input.disabled=busy||goalSaving||noteSaving||chartSaving||methodSaving||layoutSaving||layoutDragging;input.addEventListener('change',()=>{const values=[...$('material-options').querySelectorAll('input:checked')].map(input=>input.value);if(values.join(', ').length>2000){input.checked=false;$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}$('materials').value=values.join(', ');$('material-error').hidden=true;updateMaterialsSummary();weightsUI.selectionChanged();});label.append(input,methodTag(method,methodsUI.catalog));$('material-options').append(label);}
   if(!options.length)$('material-options').append(node('p','goal-feedback','Nog geen methoden. Voeg hieronder je eerste methode toe.'));
   updateMaterialsSummary();
 }
 function updateMaterialsSummary(){const selected=materialList($('materials').value);$('materials-summary').replaceChildren(...(selected.length?selected.map(m=>methodTag(m,methodsUI.catalog)):[document.createTextNode('Selecteer studieboeken / methoden')]));}
 function addMaterial(){
-  if(busy||goalSaving||noteSaving||chartSaving||methodSaving)return;
+  if(busy||goalSaving||noteSaving||chartSaving||methodSaving||layoutSaving||layoutDragging)return;
   const added=materialList(resolveMaterials($('new-material').value,methodsUI.catalog));if(!added.length)return;
   const value=[...new Set([...materialList($('materials').value),...added])].join(', ');
   if(value.length>2000){$('material-error').textContent='Kies maximaal 2000 tekens aan methoden.';$('material-error').hidden=false;return;}
@@ -141,6 +149,7 @@ function entryBadge(type){
  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 24 24');svg.setAttribute('aria-hidden','true');svg.setAttribute('fill','none');svg.setAttribute('stroke','currentColor');svg.setAttribute('stroke-width','2');svg.setAttribute('stroke-linecap','round');svg.setAttribute('stroke-linejoin','round');const path=document.createElementNS(svg.namespaceURI,'path');path.setAttribute('d',lesson?'M12 6v15M3 3h5a4 4 0 0 1 4 3 4 4 0 0 1 4-3h5v16h-5a4 4 0 0 0-4 2 4 4 0 0 0-4-2H3Z':'M16 3l5 5M4 15 17 2l5 5L9 20l-6 1Z');svg.append(path);badge.prepend(svg);return badge;
 }
 function render(){
+  if(layoutDragging)return;
   renderProgress();
   analyticsUI.setEntries(entries,loaded);methodsUI.setEntries(entries);
   renderMaterials();
@@ -177,9 +186,9 @@ function renderProgress(){
   renderGoalControls();
 }
 function makeGoalCard(item){
-  const progress=goalSchedule(entries,item),article=node('article','goal-card');
+  const progress=goalSchedule(entries,item),article=node('article','goal-card');article.dataset.orderKind='goals';article.dataset.orderId=item.id;
   article.classList.toggle('highlighted-goal',item.id===highlightedGoalId);
-  const titleRow=node('div','goal-title-row');titleRow.append(node('h3','goal-card-title',item.name));
+  const titleRow=node('div','goal-title-row');const title=node('div','sort-title');title.append(dashboard.handle('goals',item.id,item.name),node('h3','goal-card-title',item.name));titleRow.append(title);
   const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));titleRow.append(highlightLabel);article.append(titleRow);
   const datesRow=node('div','goal-dates-row');datesRow.append(node('p','goal-status',progress.scheduled?`Start ${displayDate(item.startDate)}`:item.startDate?`Live · ${displayDate(item.startDate)}`:'Live'));if(item.deadline)datesRow.append(node('p','goal-dates',`Deadline ${displayDate(item.deadline)}`));article.append(datesRow);
   if(item.deadline){
@@ -198,8 +207,9 @@ function goalActions(item,archived){
   for(const [label,action] of options){const button=node('button',`text-button${label==='Verwijderen'?' danger':''}`,label);button.type='button';button.dataset.goalAction='';button.setAttribute('aria-label',`${label}: ${item.name}`);button.addEventListener('click',action);actions.append(button);}return actions;
 }
 function renderGoalControls(){
+  if(layoutDragging)return;
   if(!goalLoaded){goals=[];selectedGoalId='';highlightedGoalId='';}
-  const active=goals.filter(item=>item.status==='actief');
+  const active=dashboard.sorted(goals.filter(item=>item.status==='actief'),'goals');
   $('goal-cards').replaceChildren(...active.slice(0,3).map(makeGoalCard));
   $('goals-empty').hidden=active.length>0;$('goals-empty').textContent=!loaded?'Verbind met Google om je doelen te zien.':goalLoaded?'Geen actieve doelen. Maak een nieuw doel aan.':'Je doelen zijn nog niet geladen.';
   const extra=active.slice(3);$('more-goals').hidden=!extra.length;$('more-goals-title').textContent=`Overige doelen (${extra.length})`;$('overflow-goals').replaceChildren(...extra.map(makeGoalCard));if(!extra.length)$('more-goals').open=false;
@@ -264,7 +274,7 @@ function finishEdit(clear=false){
 $('cancel-edit').addEventListener('click',()=>{finishEdit(true);notify('Bewerken geannuleerd.');});
 async function refresh(showMessage=true){
   busy=true;updateConnection();$('entries').setAttribute('aria-busy','true');
-  try{await methodsUI.refresh();entries=await store.read();loaded=true;render();await refreshGoal();await notesUI.refresh();await analyticsUI.refresh();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
+  try{await dashboard.refresh();await methodsUI.refresh();entries=await store.read();loaded=true;render();await refreshGoal();await notesUI.refresh();await analyticsUI.refresh();if(showMessage)notify('Je studieoverzicht is bijgewerkt.');}
   catch(error){notify(error.message,true);}
   finally{busy=false;updateConnection();$('entries').setAttribute('aria-busy','false');if(loaded)refreshAnki();}
 }
@@ -275,7 +285,7 @@ $('settings-form').addEventListener('submit',event=>{
   event.preventDefault();const next=$('client-id').value.trim();
   if(!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(next)){$('settings-error').textContent='Vul een geldige Google OAuth-client-ID in.';$('settings-error').hidden=false;return;}
   try{localStorage.setItem(storageKey,next);}catch{notify('Instelling geldt voor deze pagina. Je browser kon deze niet onthouden.');}
-  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();finishEdit(true);render();}
+  if(next!==clientId){token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();dashboard.reset();finishEdit(true);render();}
   clientId=next;$('settings').close();updateConnection();notify('');
 });
 $('connect').addEventListener('click',()=>{
@@ -286,12 +296,12 @@ $('connect').addEventListener('click',()=>{
     if(!google.accounts.oauth2.hasGrantedAllScopes(result,'https://www.googleapis.com/auth/spreadsheets')){notify('Geef toestemming voor Google Sheets om je studiedagboek te gebruiken.',true);return;}
     token=result.access_token;expiresAt=Date.now()+Number(result.expires_in)*1000-30000;
     saveSession(sessionStorageAvailable,{clientId,token,expiresAt});
-    entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();render();
+    entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();dashboard.reset();render();
     notify('');await refresh(false);
   },error_callback:()=>notify('Het Google-inlogvenster is gesloten of geblokkeerd. Sta pop-ups toe en probeer opnieuw.',true)});
   client.requestAccessToken({prompt:''});
 });
-$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();finishEdit(true);render();updateConnection();notify('');});
+$('disconnect').addEventListener('click',()=>{token='';expiresAt=0;clearSession(sessionStorageAvailable);entries=[];loaded=false;goal=null;goalLoaded=false;$('goal-hours').value='';notesUI.reset();analyticsUI.reset();methodsUI.reset();dashboard.reset();finishEdit(true);render();updateConnection();notify('');});
 $('refresh').addEventListener('click',()=>refresh());
 $('subject').addEventListener('input',()=>{$('char-count').textContent=`${$('subject').value.length} / 2000`;});
 document.querySelectorAll('[data-filter]').forEach(button=>button.addEventListener('click',()=>{filter=button.dataset.filter;document.querySelectorAll('[data-filter]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));render();}));
@@ -330,6 +340,6 @@ updateConnection();
 if(previousSession)refresh(false);
 
 let renderedDay=localDate();
-function refreshDay(){const today=localDate();if(today!==renderedDay){renderedDay=today;$('today-label').textContent=displayDate(today);renderProgress();analyticsUI.setEntries(entries,loaded);}}
+function refreshDay(){if(layoutDragging||layoutSaving)return;const today=localDate();if(today!==renderedDay){renderedDay=today;$('today-label').textContent=displayDate(today);renderProgress();analyticsUI.setEntries(entries,loaded);}}
 setInterval(refreshDay,30000);window.addEventListener('focus',refreshDay);document.addEventListener('visibilitychange',refreshDay);
 

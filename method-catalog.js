@@ -1,3 +1,4 @@
+import {methodShares} from './weights.js';
 import {materialList} from './materials.js';
 export const METHOD_HEADERS=['ID','Naam','Kleur','Omschrijving','Groep','Aliassen','Status','Type','JLPT-niveaus'];
 export const JLPT_LEVELS=['N5','N4','N3','N2','N1'];
@@ -19,6 +20,24 @@ export function validateMethod(method,catalog=[]){
  if(method.levels!==undefined&&(!Array.isArray(method.levels)||method.levels.some(level=>!JLPT_LEVELS.includes(level))))throw Error('Kies JLPT-niveaus van N5 tot en met N1.');
  const names=[method.name,...method.aliases].map(key);
  if(catalog.some(other=>other.id!==method.id&&[other.name,...other.aliases].some(n=>names.includes(key(n)))))throw Error('Deze naam is al in gebruik door een andere leermethode.');
+}
+export function hoursByLevel(entries,catalog){
+ const minutes=new Map(JLPT_LEVELS.map(level=>[level,0]));
+ const levelsByMethod=new Map();
+ for(const method of catalog){
+  const levels=JLPT_LEVELS.filter(level=>method.levels?.includes(level));
+  for(const name of [method.name,...method.aliases||[]])levelsByMethod.set(key(name),levels);
+ }
+ for(const entry of entries){
+  if(!Number.isFinite(entry.minutes)||!entry.materials?.trim())continue;
+  for(const [name,share] of methodShares(entry)){
+   const levels=levelsByMethod.get(key(name));
+   if(!levels?.length)continue;
+   const allocation=entry.minutes*share/levels.length;
+   for(const level of levels)minutes.set(level,minutes.get(level)+allocation);
+  }
+ }
+ return new Map([...minutes].map(([level,total])=>[level,total/60]));
 }
 export class MethodsStore{
  constructor(sheets){this.sheets=sheets;}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MethodsStore,METHOD_HEADERS,methodInfo,resolveEntry,resolveMaterials,methodNames,validateMethod} from '../method-catalog.js';
+import {MethodsStore,METHOD_HEADERS,methodInfo,resolveEntry,resolveMaterials,methodNames,validateMethod,hoursByLevel} from '../method-catalog.js';
 import {SheetsStore,HEADERS,parseRows} from '../data.js';
 import {AnkiMappingsStore} from '../anki-mappings.js';
 import {tagColors} from '../method-tags.js';
@@ -172,4 +172,19 @@ test('adding levels to a whole book preserves existing levels and allows individ
  await store.saveGroup(book);
  assert.equal(groupWrites,2);
  assert.deepEqual((await store.read()).map(m=>m.levels),[['N5','N3'],['N4','N3'],[]]);
+});
+
+test('study hours split over levels after method weights, including historical aliases',()=>{
+ const catalog=[
+  {...method,name:'Hoofdstuk',aliases:['Tobira H1'],levels:['N5','N4','N4']},
+  {...method,id:'n3',name:'Grammatica',levels:['N3'],status:'gearchiveerd'},
+  {...method,id:'other',name:'Zonder niveau',levels:[]}
+ ];
+ const totals=hoursByLevel([
+  {materials:'Tobira H1, Grammatica',minutes:120,weights:{'Tobira H1':75,Grammatica:25}},
+  {materials:'Hoofdstuk, Zonder niveau',minutes:60},
+  {materials:'Grammatica',minutes:null},
+  {materials:'',minutes:40}
+ ],catalog);
+ assert.deepEqual([...totals],[['N5',1],['N4',1],['N3',.5],['N2',0],['N1',0]]);
 });

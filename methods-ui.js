@@ -1,6 +1,7 @@
-import {MethodsStore,methodInfo,defaultGroup,defaultColor,JLPT_LEVELS} from './method-catalog.js?v=33';
+import {MethodsStore,methodInfo,defaultGroup,defaultColor,JLPT_LEVELS,hoursByLevel} from './method-catalog.js?v=34';
 import {materialList} from './materials.js';
 import {methodTag,tagColors} from './method-tags.js?v=22';
+const formatHours=new Intl.NumberFormat('nl-NL',{style:'unit',unit:'hour',unitDisplay:'long',maximumFractionDigits:2});
 const $=id=>document.getElementById(id);
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
 export class MethodsUI{
@@ -41,12 +42,13 @@ export class MethodsUI{
   section.setAttribute('aria-labelledby','method-levels-title');
   const heading=node('h3','method-type-title','Niveaus');
   heading.id='method-levels-title';
-  section.append(heading);
+  section.append(heading,node('p','goal-feedback','Studietijd telt mee volgens de huidige niveaus. Bij meerdere niveaus wordt de tijd per leermethode gelijk verdeeld.'));
+  const totals=hoursByLevel(this.entries,this.catalog);
   const levels=node('div','method-levels-grid');
   for(const level of JLPT_LEVELS){
    const members=methods.filter(method=>method.levels?.includes(level));
    const card=node('section','method-card');
-   card.append(node('h4','method-group-title',`JLPT ${level}`));
+   card.append(node('h4','method-group-title',`JLPT ${level}`),node('p','method-description',formatHours.format(totals.get(level))));
    const tags=node('div','method-level-tags');
    for(const method of members){
     const button=node('button','text-button method-level-edit');

@@ -24,3 +24,11 @@ test('unexpected schema prevents writing',async()=>{
   const store=new AnkiMappingsStore({request:async(path,options)=>{assert.equal(options,undefined);return path.startsWith('?')?{sheets:[{properties:{title:'AnkiDecks'}}]}:{values:[['Wrong']]};}});
   await assert.rejects(store.save('User',{D:'M'}),/kolommen/);
 });
+
+test('tag mappings use their own sheet and preserve the tag name literally',async()=>{
+  const calls=[];
+  const store=new AnkiMappingsStore({request:async(path,options)=>{calls.push({path,options});return {sheets:[]};}},'Tag');
+  await store.save('User',{'Book::Unit-1':'Tobira'});
+  assert.equal(JSON.parse(calls[1].options.body).requests[0].addSheet.properties.title,'AnkiTags');
+  assert.deepEqual(JSON.parse(calls[2].options.body).values,[['Profiel','Tag','Lesmethode'],['User','Book::Unit-1','Tobira']]);
+});

@@ -16,3 +16,8 @@
 .anki-method-choice input[type=checkbox]{width:18px;height:18px;flex-shrink:0;margin:0;accent-color:#31584a}
 .anki-method-choice[hidden]{display:none}
 .anki-method-picker summary:focus-visible,.anki-method-tag button:focus-visible{outline:2px solid #31584a;outline-offset:2px}
+.anki-stats-group{padding:8px 0;overflow-wrap:anywhere}
+.anki-stats-group summary{cursor:pointer}
+#anki-stats-filters:not([hidden]){display:flex;flex-wrap:wrap;gap:12px}
+#anki-stats-filters label{min-width:0;max-width:100%}
+#anki-stats-filters select{max-width:100%}

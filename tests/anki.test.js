@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AnkiConnect,dailyAnkiEntries,syncAnki,methodForDeck} from '../anki.js';
+import {summarizeAnkiTags} from '../anki-stats-ui.js';
 const now=new Date(2026,10,16,18);
 const review=(day,time=30000,extra={})=>({id:+new Date(2026,10,day,12),time,ease:3,type:1,...extra});
 test('calendar grouping, deduplication, rounding and exclusion of non-study logs',()=>{
@@ -37,11 +38,46 @@ test('read-only API batches card history and uses loopback only',async()=>{
   const anki=new AnkiConnect(async(url,options)=>{
     assert.equal(url,'http://127.0.0.1:8765');
     const request=JSON.parse(options.body);actions.push(request);
-    return {ok:true,json:async()=>({error:null,result:request.action==='findCards'?Array.from({length:251},(_,i)=>i):request.action==='getDecks'?{'Tobira':request.params.cards}:Object.fromEntries(request.params.cards.map(id=>[id,[review(16,30000,{id:+now+id})]]))})};
+    const batch=request.params.cards;
+    const result={
+      findCards:()=>Array.from({length:251},(_,i)=>i),
+      cardsInfo:()=>batch.map(cardId=>({cardId,note:Math.floor(cardId/2),deckName:'Tobira'})).reverse(),
+      notesInfo:()=>request.params.notes.map(noteId=>({noteId,tags:noteId%2?[]:['H5']})).reverse(),
+      getReviewsOfCards:()=>Object.fromEntries(batch.map(id=>[id,[review(16,30000,{id:+now+id})]]))
+    }[request.action]();
+    return {ok:true,json:async()=>({error:null,result})};
   });
-  await anki.reviews();
-  assert.deepEqual(actions.map(x=>x.action),['findCards','getDecks','getReviewsOfCards','getDecks','getReviewsOfCards']);
-  assert.equal(actions[2].params.cards.length,250);assert.equal(actions[4].params.cards.length,1);
+  const reviews=await anki.reviews();
+  assert.deepEqual(actions.map(x=>x.action),['findCards','cardsInfo','notesInfo','getReviewsOfCards','cardsInfo','notesInfo','getReviewsOfCards']);
+  assert.equal(actions[3].params.cards.length,250);assert.equal(actions[6].params.cards.length,1);
+  assert.equal(actions[2].params.notes.length,125);
+  assert.deepEqual(reviews[0],{...review(16,30000,{id:+now}),card:'0',deck:'Tobira',tags:['H5']});
+  assert.deepEqual(reviews[1].tags,['H5']);
+  assert.deepEqual(reviews[2].tags,[]);
+});
+test('matched tags override deck and split time once per distinct method',()=>{
+  const tagged=review(16,120000,{deck:'Main::Child',tags:['A','B','Unmapped']});
+  const fallback=review(16,60000,{id:tagged.id+1,deck:'Main::Child',tags:['Unmapped']});
+  const [entry]=dailyAnkiEntries([tagged,fallback],now,{Main:'Deck method'},{A:'One, Two',B:'Two'});
+  assert.equal(entry.minutes,3);
+  assert.equal(entry.subject,'Anki · 2 herhalingen');
+  assert.deepEqual(Object.keys(entry.weights),['Deck method','One','Two']);
+  for(const percent of Object.values(entry.weights))assert.ok(Math.abs(percent-100/3)<1e-9);
+});
+
+test('tag statistics count each card once and retain its full answer time and review count',()=>{
+  const base={date:'2026-11-16',deck:'Main',tags:['A','B','A'],card:'1',time:1400};
+  const groups=summarizeAnkiTags([
+    base,{...base,time:600},
+    {...base,card:'2',tags:['A']},
+    {...base,card:'3',tags:[]},
+    {...base,date:'2026-11-15'},{...base,deck:'Other'}
+  ],'2026-11-16','Main');
+  assert.equal(groups.get('A').cards.size,2);
+  assert.equal(groups.get('A').reviews,3);
+  assert.equal(groups.get('A').milliseconds,3400);
+  assert.deepEqual(groups.get('B').cards.get('1'),{milliseconds:2000,reviews:2,deck:'Main'});
+  assert.equal(groups.get(null).cards.size,1);
 });
 test('most specific mapping wins and time is allocated without counting parent decks twice',()=>{
   const mappings={'Tobira':'Tobira','Tobira::H5':'Tobira H5','Other':'Tobira H5'};

@@ -20,15 +20,18 @@ export class AnkiConnect {
     const reviews=[];
     for(let i=0;i<cards.length;i+=250){
       const batch=cards.slice(i,i+250);
-      const decks=await this.call('getDecks',{cards:batch});
-      if(!decks||typeof decks!=='object'||Object.values(decks).some(value=>!Array.isArray(value)))throw new Error('Ongeldige decks van AnkiConnect.');
-      const cardDecks=new Map();
-      for(const [name,ids] of Object.entries(decks))for(const id of ids)cardDecks.set(String(id),name);
+      const info=await this.call('cardsInfo',{cards:batch});
+      if(!Array.isArray(info)||info.some(card=>!card||!Number.isSafeInteger(card.cardId)||!Number.isSafeInteger(card.note)||typeof card.deckName!=='string'||!card.deckName))throw new Error('Ongeldige kaartgegevens van AnkiConnect.');
+      const cardsById=new Map(info.map(card=>[String(card.cardId),card]));
+      const notes=await this.call('notesInfo',{notes:[...new Set(info.map(card=>card.note))]});
+      if(!Array.isArray(notes)||notes.some(note=>!note||!Number.isSafeInteger(note.noteId)||!Array.isArray(note.tags)||note.tags.some(tag=>typeof tag!=='string'||!tag)))throw new Error('Ongeldige kaarttags van AnkiConnect.');
+      const tagsByNote=new Map(notes.map(note=>[note.noteId,note.tags]));
       const result=await this.call('getReviewsOfCards',{cards:batch});
       if(!result||typeof result!=='object'||Object.values(result).some(value=>!Array.isArray(value)))throw new Error('Ongeldige herhalingen van AnkiConnect.');
       for(const [card,values] of Object.entries(result)){
-        if(!cardDecks.has(card))throw new Error('Deck van een herhaalde kaart ontbreekt.');
-        for(const review of values)reviews.push({...review,deck:cardDecks.get(card)});
+        const metadata=cardsById.get(card);
+        if(!metadata||!tagsByNote.has(metadata.note))throw new Error('Gegevens van een herhaalde kaart ontbreken.');
+        for(const review of values)reviews.push({...review,card,deck:metadata.deckName,tags:tagsByNote.get(metadata.note)});
       }
     }
     return reviews;
@@ -40,16 +43,25 @@ export function methodForDeck(deck,mappings={}){
   while(name){if(Object.hasOwn(mappings,name)&&mappings[name])return mappings[name];const split=name.lastIndexOf('::');if(split<0)break;name=name.slice(0,split);}
   return 'Anki';
 }
-export function dailyAnkiEntries(reviews,now=new Date(),mappings={}){
+export function* recentAnkiReviews(reviews,now=new Date()){
   const first=new Date(now.getFullYear(),now.getMonth(),now.getDate()-29);
-  const today=localDate(now),days=new Map(),seen=new Set();
+  const today=localDate(now),seen=new Set();
   for(const review of reviews){
     if(!Number.isSafeInteger(review.id)||!Number.isFinite(review.time)||review.time<0||![1,2,3,4].includes(review.ease)||![0,1,2,3].includes(review.type))continue;
     const date=localDate(new Date(review.id));
     if(review.id<+first||date>today||seen.has(review.id))continue;
     seen.add(review.id);
+    yield {...review,date};
+  }
+}
+
+export function dailyAnkiEntries(reviews,now=new Date(),mappings={},tagMappings={}){
+  const days=new Map();
+  for(const review of recentAnkiReviews(reviews,now)){
+    const {date}=review;
     const day=days.get(date)||{count:0,milliseconds:0,methods:new Map()};
-    const methods=materialList(methodForDeck(review.deck,mappings));
+    const tagged=[...new Set((review.tags||[]).flatMap(tag=>Object.hasOwn(tagMappings,tag)?materialList(tagMappings[tag]):[]))];
+    const methods=tagged.length?tagged:materialList(methodForDeck(review.deck,mappings));
     for(const method of methods){
       const part=day.methods.get(method)||{time:0,count:0};
       part.time+=review.time/methods.length;part.count+=1/methods.length;day.methods.set(method,part);
@@ -63,8 +75,8 @@ export function dailyAnkiEntries(reviews,now=new Date(),mappings={}){
   }));
 }
 
-export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now),mappings={}){
-  const wanted=dailyAnkiEntries(await anki.reviews(),now,mappings).filter(entry=>entry.date>=fromDate);
+export async function syncAnki(store,anki,now=new Date(),fromDate=localDate(now),mappings={},tagMappings={}){
+  const wanted=dailyAnkiEntries(await anki.reviews(),now,mappings,tagMappings).filter(entry=>entry.date>=fromDate);
   const existing=await store.read();
   let changed=0;
   for(const entry of wanted){

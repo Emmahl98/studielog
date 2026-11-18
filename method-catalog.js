@@ -32,14 +32,21 @@ export class MethodsStore{
   const result=values.slice(1).flatMap((r,i)=>{if(!r.some(v=>v!==''))return [];let aliases;try{aliases=JSON.parse(r[5]||'[]');}catch{throw Error('Ongeldige aliassen in Leermethodes.');}return [{id:r[0],name:r[1],color:r[2],description:r[3]||'',group:r[4]||'',aliases,status:r[6],type:r[7]??'',rowNumber:i+2}];});
   const ids=new Set();for(const m of result){if(ids.has(m.id))throw Error('Dubbel leermethode-ID.');ids.add(m.id);validateMethod(m,result);}return result;
  }
- async saveGroup({original='',name='',color,ids=[],remove=false}){
+ async saveGroup({original='',name='',color,ids=[],remove=false,type=''}){
   const catalog=await this.read(),selected=new Set(ids),target=name.trim();
   if(typeof original!=='string'||!Array.isArray(ids)||ids.some(id=>!catalog.some(m=>m.id===id))||(!remove&&(!/^#[0-9a-f]{6}$/i.test(color||'')||!target||target.length>100||/[\r\n]/.test(target)||target.toLocaleLowerCase('nl')==='overig'||!selected.size)))throw Error('Geef de groep een naam en kies minimaal één leermethode. Overig is gereserveerd voor methodes zonder groep.');
   if(remove&&!original)throw Error('Kies een bestaande groep om op te heffen.');
+  if(!remove&&type!==''&&!METHOD_TYPES.includes(type))throw Error('Kies Boek of Niveau algemeen als type leermethode.');
   const data=catalog.flatMap(m=>{
    const group=remove?(m.group===original?'':m.group):selected.has(m.id)?target:m.group===original&&original?'':m.group;
-   const useColor=!remove&&group===target;return [...(group===m.group?[]:[{range:`'Leermethodes'!E${m.rowNumber}:E${m.rowNumber}`,values:[[group]]}]),...(useColor&&m.color!==color?[{range:`'Leermethodes'!C${m.rowNumber}:C${m.rowNumber}`,values:[[color]]}]:[])];
+   const inGroup=!remove&&group===target;
+   return [
+    ...(group===m.group?[]:[{range:`'Leermethodes'!E${m.rowNumber}:E${m.rowNumber}`,values:[[group]]}]),
+    ...(inGroup&&m.color!==color?[{range:`'Leermethodes'!C${m.rowNumber}:C${m.rowNumber}`,values:[[color]]}]:[]),
+    ...(inGroup&&type&&m.type!==type?[{range:`'Leermethodes'!H${m.rowNumber}:H${m.rowNumber}`,values:[[type]]}]:[])
+   ];
   });
+  if(type&&!remove&&!this.hasTypeHeader)data.unshift({range:"'Leermethodes'!H1",values:[['Type']]});
   if(data.length)await this.sheets.request('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});
  }
  async save(method){

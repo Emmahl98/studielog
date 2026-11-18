@@ -1,4 +1,4 @@
-import {MethodsStore,methodInfo,defaultGroup,defaultColor} from './method-catalog.js?v=28';
+import {MethodsStore,methodInfo,defaultGroup,defaultColor} from './method-catalog.js?v=29';
 import {materialList} from './materials.js';
 import {methodTag,tagColors} from './method-tags.js?v=22';
 const $=id=>document.getElementById(id);
@@ -21,7 +21,7 @@ export class MethodsUI{
  this.updateDisabled(this.connected,this.locked);
  }
  editGroup(original=''){
-  if(!this.options.canMutate()||!this.loaded)return;this.originalGroup=original;$('group-editor-title').textContent=original?'Groep bewerken':'Nieuwe groep';$('group-name').value=original;$('group-color').value=this.catalog.find(m=>m.group===original)?.color||defaultColor('Nieuwe groep');$('group-remove').hidden=!original;$('group-error').hidden=true;
+  if(!this.options.canMutate()||!this.loaded)return;this.originalGroup=original;$('group-editor-title').textContent=original?'Groep bewerken':'Nieuwe groep';$('group-name').value=original;$('group-color').value=this.catalog.find(m=>m.group===original)?.color||defaultColor('Nieuwe groep');$('group-type').value='';$('group-remove').hidden=!original;$('group-error').hidden=true;
   this.groupMethods=this.all().map(m=>({...m,id:m.id||crypto.randomUUID()}));$('group-methods').replaceChildren();for(const method of [...this.groupMethods].sort((a,b)=>a.name.localeCompare(b.name,'nl',{numeric:true}))){const label=node('label','group-method-choice'),input=node('input');input.type='checkbox';input.value=method.id;input.checked=!!original&&method.group===original;input.addEventListener('change',()=>this.groupPreview());label.append(input,methodTag(method.name,this.catalog),node('span','group-method-current',method.group||'Overig'));if(method.status==='gearchiveerd')label.append(node('small','','Gearchiveerd'));$('group-methods').append(label);}
   this.groupPreview();$('group-dialog').showModal();
  }
@@ -31,7 +31,7 @@ export class MethodsUI{
   $('group-preview').textContent=`${count} leermethodes geselecteerd. ${merge?'Deze naam bestaat al: de groepen worden samengevoegd. ':''}Aangevinkte methodes verhuizen naar deze groep. Uitgevinkte methodes uit de oorspronkelijke groep komen onder Overig.`;
  }
  async saveGroup(remove=false){
-  if(this.saving||!this.options.canMutate())return;const value={original:this.originalGroup,name:$('group-name').value,color:$('group-color').value,ids:[...$('group-methods').querySelectorAll('input:checked')].map(el=>el.value),remove};
+  if(this.saving||!this.options.canMutate())return;const value={original:this.originalGroup,name:$('group-name').value,color:$('group-color').value,ids:[...$('group-methods').querySelectorAll('input:checked')].map(el=>el.value),remove,type:$('group-type').value};
   this.saving=true;this.options.setBusy(true);try{for(const method of this.groupMethods.filter(m=>!this.catalog.some(saved=>saved.id===m.id)&&(value.ids.includes(m.id)||m.group===value.original)))await this.store.save(method);await this.store.saveGroup(value);await this.refresh();await this.options.afterChange();$('group-dialog').close();$('methods-feedback').textContent=remove?'Groep opgeheven. De leermethodes staan nu onder Overig.':'Groep opgeslagen.';}catch(error){$('group-error').textContent=error.message;$('group-error').hidden=false;}finally{this.saving=false;this.options.setBusy(false);}
  }
  edit(method=null){if(!this.options.canMutate()||!this.loaded)return;this.editing=method||{id:'',name:'',color:defaultColor('Nieuw'),description:'',group:'',aliases:[],status:'actief'};this.draftId=method?.id||crypto.randomUUID();$('method-editor-title').textContent=method?'Leermethode bewerken':'Nieuwe leermethode';for(const field of ['name','color','description','group','type'])$('method-'+field).value=this.editing[field]??'';$('method-groups').replaceChildren(...[...new Set(this.catalog.map(m=>m.group).filter(Boolean))].sort().map(g=>new Option(g)));$('method-error').hidden=true;this.preview();$('method-dialog').showModal();}

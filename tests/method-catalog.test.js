@@ -45,3 +45,31 @@ test('legacy methods can receive a type and keep it when updated by an older cal
  assert.equal((await store.read())[0].type,'Niveau algemeen');
  await assert.rejects(store.save({...method,type:'Andere'}),/Boek of Niveau algemeen/);
 });
+
+test('group type updates every resulting member in one write, including on a legacy sheet',async()=>{
+ const rows=[METHOD_HEADERS.slice(0,7),
+  ['a','A','#31584a','','Oud','[]','actief'],
+  ['b','B','#31584a','','Oud','[]','actief'],
+  ['c','C','#31584a','','Nieuw','[]','gearchiveerd'],
+  ['d','D','#31584a','','Overige','[]','actief']];
+ const writes=[];
+ const api={async request(path,options){
+  if(path.startsWith('?'))return {sheets:[{properties:{title:'Leermethodes'}}]};
+  if(!options)return {values:rows};
+  assert.equal(path,'/values:batchUpdate');
+  const {data}=JSON.parse(options.body);
+  writes.push(data);
+  for(const item of data){
+   const [,column,row]=item.range.match(/!([CEH])(\d+)/);
+   rows[Number(row)-1][{C:2,E:4,H:7}[column]]=item.values[0][0];
+  }
+ }};
+ const store=new MethodsStore(api);
+ await store.saveGroup({original:'Oud',name:'Nieuw',color:'#31584a',ids:['a','d'],type:'Boek'});
+ assert.equal(writes.length,1);
+ assert.deepEqual(rows.map(row=>row[7]),['Type','Boek',undefined,'Boek','Boek']);
+ await store.saveGroup({original:'Nieuw',name:'Nieuw',color:'#31584a',ids:['a','c','d']});
+ assert.equal(writes.length,1);
+ await store.saveGroup({original:'Nieuw',remove:true,type:'Niveau algemeen'});
+ assert.deepEqual(rows.slice(1).map(row=>row[7]),['Boek',undefined,'Boek','Boek']);
+});

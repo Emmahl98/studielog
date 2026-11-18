@@ -13,12 +13,79 @@ export class MethodsUI{
  setEntries(entries){this.entries=entries;this.render();}
  updateDisabled(connected,locked){this.connected=connected;this.locked=locked;$('new-method').disabled=!connected||locked||!this.loaded;$('new-group').disabled=!connected||locked||!this.loaded;document.querySelectorAll('[data-method-action]').forEach(b=>b.disabled=!connected||locked||!this.loaded);for(const id of ['method-form','group-form'])$(id).querySelectorAll('input,textarea,select,button').forEach(el=>el.disabled=locked);if(!locked&&$('method-dialog').open)this.preview();}
  all(){const known=new Set(this.catalog.flatMap(m=>[m.name,...m.aliases]));return [...this.catalog,...[...new Set(this.entries.flatMap(e=>materialList(e.materials)))].filter(n=>!known.has(n)).map(name=>methodInfo(name))];}
- render(){const list=$('methods-list');list.replaceChildren();if(!this.loaded){list.append(node('p','notes-empty','Verbind met Google om je leermethodes te beheren.'));return;}
- const query=$('method-search').value.toLocaleLowerCase('nl'),archived=$('show-archived-methods').checked;
- const methods=this.all().filter(m=>(archived||m.status==='actief')&&[m.name,m.group,m.description,m.type].join(' ').toLocaleLowerCase('nl').includes(query)).sort((a,b)=>(a.group||'Overig').localeCompare(b.group||'Overig','nl',{numeric:true})||a.name.localeCompare(b.name,'nl',{numeric:true}));
- if(!methods.length)list.append(node('p','notes-empty','Geen leermethodes gevonden. Voeg een leermethode toe of pas je zoekopdracht aan.'));
- let group,grid;for(const m of methods){const label=m.group||'Overig';if(label!==group){group=label;const section=node('section','method-group');const heading=node('div','method-group-heading');heading.append(node('h3','method-group-title',label));if(m.group){const editGroup=node('button','text-button','Groep bewerken');editGroup.type='button';editGroup.dataset.methodAction='';editGroup.setAttribute('aria-label',`Groep bewerken: ${label}`);editGroup.addEventListener('click',()=>this.editGroup(label));heading.append(editGroup);}section.append(heading);grid=node('div','methods-grid');section.append(grid);list.append(section);}const card=node('article','method-card');card.append(methodTag(m.name,[m]));if(m.type)card.append(node('p','method-description',m.type));if(m.description)card.append(node('p','method-description',m.description));if(m.status==='gearchiveerd')card.append(node('p','goal-feedback','Gearchiveerd · blijft zichtbaar bij bestaande items'));const actions=node('div','method-actions');const edit=node('button','text-button','Bewerken');edit.type='button';edit.dataset.methodAction='';edit.setAttribute('aria-label',`Bewerken: ${m.name}`);edit.addEventListener('click',()=>this.edit(m));actions.append(edit);if(m.id){const archive=node('button','text-button',m.status==='actief'?'Archiveren':'Terugzetten');archive.type='button';archive.dataset.methodAction='';archive.setAttribute('aria-label',`${archive.textContent}: ${m.name}`);archive.addEventListener('click',()=>this.mutate({...m,status:m.status==='actief'?'gearchiveerd':'actief'}));actions.append(archive);}card.append(actions);grid.append(card);}
- this.updateDisabled(this.connected,this.locked);
+ render(){
+  const list=$('methods-list');
+  list.replaceChildren();
+  if(!this.loaded){
+   list.append(node('p','notes-empty','Verbind met Google om je leermethodes te beheren.'));
+   return;
+  }
+  const query=$('method-search').value.toLocaleLowerCase('nl');
+  const archived=$('show-archived-methods').checked;
+  const methods=this.all()
+   .filter(m=>(archived||m.status==='actief')&&[m.name,m.group,m.description,m.type].join(' ').toLocaleLowerCase('nl').includes(query))
+   .sort((a,b)=>(a.group||'Overig').localeCompare(b.group||'Overig','nl',{numeric:true})||a.name.localeCompare(b.name,'nl',{numeric:true}));
+  const columns=node('div','method-type-columns');
+  columns.append(
+   this.renderType('Boeken',methods.filter(m=>m.type==='Boek')),
+   this.renderType('Niveau algemeen',methods.filter(m=>m.type==='Niveau algemeen'))
+  );
+  list.append(columns);
+  const untyped=methods.filter(m=>!m.type);
+  if(untyped.length)list.append(this.renderType('Zonder type',untyped));
+  this.updateDisabled(this.connected,this.locked);
+ }
+ renderType(title,methods){
+  const section=node('section','method-type-section');
+  section.setAttribute('aria-label',title);
+  section.append(node('h3','method-type-title',title));
+  if(!methods.length)section.append(node('p','notes-empty','Geen leermethodes gevonden.'));
+  let group,grid;
+  for(const method of methods){
+   const label=method.group||'Overig';
+   if(label!==group){
+    group=label;
+    const subsection=node('section','method-group');
+    const heading=node('div','method-group-heading');
+    heading.append(node('h4','method-group-title',label));
+    if(method.group){
+     const editGroup=node('button','text-button','Groep bewerken');
+     editGroup.type='button';
+     editGroup.dataset.methodAction='';
+     editGroup.setAttribute('aria-label',`Groep bewerken: ${label} (${title})`);
+     editGroup.addEventListener('click',()=>this.editGroup(label));
+     heading.append(editGroup);
+    }
+    grid=node('div','methods-grid');
+    subsection.append(heading,grid);
+    section.append(subsection);
+   }
+   grid.append(this.renderCard(method));
+  }
+  return section;
+ }
+ renderCard(method){
+  const card=node('article','method-card');
+  card.append(methodTag(method.name,[method]));
+  if(method.description)card.append(node('p','method-description',method.description));
+  if(method.status==='gearchiveerd')card.append(node('p','goal-feedback','Gearchiveerd'));
+  const actions=node('div','method-actions');
+  const edit=node('button','text-button','Bewerken');
+  edit.type='button';
+  edit.dataset.methodAction='';
+  edit.setAttribute('aria-label',`Bewerken: ${method.name}`);
+  edit.addEventListener('click',()=>this.edit(method));
+  actions.append(edit);
+  if(method.id){
+   const archive=node('button','text-button',method.status==='actief'?'Archiveren':'Terugzetten');
+   archive.type='button';
+   archive.dataset.methodAction='';
+   archive.setAttribute('aria-label',`${archive.textContent}: ${method.name}`);
+   archive.addEventListener('click',()=>this.mutate({...method,status:method.status==='actief'?'gearchiveerd':'actief'}));
+   actions.append(archive);
+  }
+  card.append(actions);
+  return card;
  }
  editGroup(original=''){
   if(!this.options.canMutate()||!this.loaded)return;this.originalGroup=original;$('group-editor-title').textContent=original?'Groep bewerken':'Nieuwe groep';$('group-name').value=original;$('group-color').value=this.catalog.find(m=>m.group===original)?.color||defaultColor('Nieuwe groep');$('group-type').value='';$('group-remove').hidden=!original;$('group-error').hidden=true;

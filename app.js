@@ -1,5 +1,5 @@
 import {DashboardLayout} from './dashboard-ui.js?v=25';
-import {MethodsUI} from './methods-ui.js?v=30';
+import {MethodsUI} from './methods-ui.js?v=31';
 import {methodNames,methodInfo,resolveMaterials} from './method-catalog.js?v=30';
 import {methodTag} from './method-tags.js?v=22';
 import {AnkiMappingUI} from './anki-mapping-ui.js?v=27';

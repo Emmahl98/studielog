@@ -45,23 +45,29 @@ export class MethodsStore{
   const appendDimension={sheetId:this.sheet.sheetId,dimension:'COLUMNS',length:required-columns};
   await this.sheets.request(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{appendDimension}]})});
  }
- async saveGroup({original='',name='',color,ids=[],remove=false,type=''}){
+ async saveGroup({original='',name='',color,ids=[],remove=false,type='',levels=[]}){
   const catalog=await this.read(),selected=new Set(ids),target=name.trim();
   if(typeof original!=='string'||!Array.isArray(ids)||ids.some(id=>!catalog.some(m=>m.id===id))||(!remove&&(!/^#[0-9a-f]{6}$/i.test(color||'')||!target||target.length>100||/[\r\n]/.test(target)||target.toLocaleLowerCase('nl')==='overig'||!selected.size)))throw Error('Geef de groep een naam en kies minimaal één leermethode. Overig is gereserveerd voor methodes zonder groep.');
   if(remove&&!original)throw Error('Kies een bestaande groep om op te heffen.');
   if(!remove&&type!==''&&!METHOD_TYPES.includes(type))throw Error('Kies Boek of Niveau algemeen als type leermethode.');
+  if(!remove&&(!Array.isArray(levels)||levels.some(level=>!JLPT_LEVELS.includes(level))))throw Error('Kies JLPT-niveaus van N5 tot en met N1.');
+  const addLevels=!remove&&levels.length>0;
   const data=catalog.flatMap(m=>{
    const group=remove?(m.group===original?'':m.group):selected.has(m.id)?target:m.group===original&&original?'':m.group;
    const inGroup=!remove&&group===target;
+   const added=inGroup&&addLevels&&levels.some(level=>!m.levels.includes(level));
+   const nextLevels=added?JLPT_LEVELS.filter(level=>m.levels.includes(level)||levels.includes(level)).join(', '):'';
    return [
     ...(group===m.group?[]:[{range:`'Leermethodes'!E${m.rowNumber}:E${m.rowNumber}`,values:[[group]]}]),
     ...(inGroup&&m.color!==color?[{range:`'Leermethodes'!C${m.rowNumber}:C${m.rowNumber}`,values:[[color]]}]:[]),
-    ...(inGroup&&type&&m.type!==type?[{range:`'Leermethodes'!H${m.rowNumber}:H${m.rowNumber}`,values:[[type]]}]:[])
+    ...(inGroup&&type&&m.type!==type?[{range:`'Leermethodes'!H${m.rowNumber}:H${m.rowNumber}`,values:[[type]]}]:[]),
+    ...(added?[{range:`'Leermethodes'!I${m.rowNumber}:I${m.rowNumber}`,values:[[nextLevels]]}]:[])
    ];
   });
-  if(type&&!remove){
-   await this.ensureColumns(8);
-   if(!this.hasTypeHeader)data.unshift({range:"'Leermethodes'!H1",values:[['Type']]});
+  if(addLevels||(type&&!remove)){
+   await this.ensureColumns(addLevels?9:8);
+   if(!this.hasTypeHeader)data.unshift({range:"'Leermethodes'!H1",values:[[METHOD_HEADERS[7]]]});
+   if(addLevels&&!this.hasLevelHeader)data.unshift({range:"'Leermethodes'!I1",values:[[METHOD_HEADERS[8]]]});
   }
   if(data.length)await this.sheets.request('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});
  }

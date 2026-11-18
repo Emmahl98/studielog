@@ -139,3 +139,37 @@ test('multiple JLPT levels survive legacy sheet expansion and subsequent edits',
  assert.deepEqual((await store.read())[0].levels,[]);
  assert.equal(expansions,1);
 });
+
+test('adding levels to a whole book preserves existing levels and allows individual changes',async()=>{
+ const rows=[METHOD_HEADERS.slice(0,8),
+  ['a','Hoofdstuk 1','#31584a','','Boek A','[]','actief','Boek'],
+  ['b','Hoofdstuk 2','#31584a','','Boek A','[]','actief','Boek'],
+  ['c','Ander boek','#31584a','','Boek B','[]','actief','Boek']];
+ const properties={title:'Leermethodes',sheetId:9,gridProperties:{columnCount:8}};
+ let groupWrites=0;
+ const api={async request(path,options){
+  if(path.startsWith('?'))return {sheets:[{properties}]};
+  if(!options)return {values:rows};
+  const body=JSON.parse(options.body);
+  if(path===':batchUpdate'){
+   assert.deepEqual(body.requests,[{appendDimension:{sheetId:9,dimension:'COLUMNS',length:1}}]);
+   properties.gridProperties.columnCount=9;
+  }else if(path==='/values:batchUpdate'){
+   groupWrites++;
+   for(const item of body.data){
+    const [,column,row]=item.range.match(/!([CEHI])(\d+)/);
+    rows[Number(row)-1][{C:2,E:4,H:7,I:8}[column]]=item.values[0][0];
+   }
+  }else rows[Number(decodeURIComponent(path).match(/!A(\d+)/)[1])-1]=body.values[0];
+  return {};
+ }};
+ const store=new MethodsStore(api);
+ const book={original:'Boek A',name:'Boek A',color:'#31584a',ids:['a','b']};
+ await store.saveGroup({...book,levels:['N4']});
+ const [first]=await store.read();
+ await store.save({...first,levels:['N5']});
+ await store.saveGroup({...book,levels:['N3']});
+ await store.saveGroup(book);
+ assert.equal(groupWrites,2);
+ assert.deepEqual((await store.read()).map(m=>m.levels),[['N5','N3'],['N4','N3'],[]]);
+});

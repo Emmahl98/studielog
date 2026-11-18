@@ -1,4 +1,4 @@
-import {MethodsStore,methodInfo,defaultGroup,defaultColor} from './method-catalog.js?v=30';
+import {MethodsStore,methodInfo,defaultGroup,defaultColor,JLPT_LEVELS} from './method-catalog.js?v=32';
 import {materialList} from './materials.js';
 import {methodTag,tagColors} from './method-tags.js?v=22';
 const $=id=>document.getElementById(id);
@@ -33,7 +33,35 @@ export class MethodsUI{
   list.append(columns);
   const untyped=methods.filter(m=>!m.type);
   if(untyped.length)list.append(this.renderType('Zonder type',untyped));
+  list.append(this.renderLevels(methods));
   this.updateDisabled(this.connected,this.locked);
+ }
+ renderLevels(methods){
+  const section=node('section','method-type-section');
+  section.setAttribute('aria-labelledby','method-levels-title');
+  const heading=node('h3','method-type-title','Niveaus');
+  heading.id='method-levels-title';
+  section.append(heading);
+  const levels=node('div','method-levels-grid');
+  for(const level of JLPT_LEVELS){
+   const members=methods.filter(method=>method.levels?.includes(level));
+   const card=node('section','method-card');
+   card.append(node('h4','method-group-title',`JLPT ${level}`));
+   const tags=node('div','method-level-tags');
+   for(const method of members){
+    const button=node('button','text-button method-level-edit');
+    button.type='button';
+    button.dataset.methodAction='';
+    button.setAttribute('aria-label',`Bewerken: ${method.name} (JLPT ${level})`);
+    button.append(methodTag(method.name,[method]));
+    button.addEventListener('click',()=>this.edit(method));
+    tags.append(button);
+   }
+   card.append(members.length?tags:node('p','goal-feedback','Geen leermethodes gekoppeld.'));
+   levels.append(card);
+  }
+  section.append(levels);
+  return section;
  }
  renderType(title,methods){
   const section=node('section','method-type-section');
@@ -101,8 +129,8 @@ export class MethodsUI{
   if(this.saving||!this.options.canMutate())return;const value={original:this.originalGroup,name:$('group-name').value,color:$('group-color').value,ids:[...$('group-methods').querySelectorAll('input:checked')].map(el=>el.value),remove,type:$('group-type').value};
   this.saving=true;this.options.setBusy(true);try{for(const method of this.groupMethods.filter(m=>!this.catalog.some(saved=>saved.id===m.id)&&(value.ids.includes(m.id)||m.group===value.original)))await this.store.save(method);await this.store.saveGroup(value);await this.refresh();await this.options.afterChange();$('group-dialog').close();$('methods-feedback').textContent=remove?'Groep opgeheven. De leermethodes staan nu onder Overig.':'Groep opgeslagen.';}catch(error){$('group-error').textContent=error.message;$('group-error').hidden=false;}finally{this.saving=false;this.options.setBusy(false);}
  }
- edit(method=null){if(!this.options.canMutate()||!this.loaded)return;this.editing=method||{id:'',name:'',color:defaultColor('Nieuw'),description:'',group:'',aliases:[],status:'actief'};this.draftId=method?.id||crypto.randomUUID();$('method-editor-title').textContent=method?'Leermethode bewerken':'Nieuwe leermethode';for(const field of ['name','color','description','group','type'])$('method-'+field).value=this.editing[field]??'';$('method-groups').replaceChildren(...[...new Set(this.catalog.map(m=>m.group).filter(Boolean))].sort().map(g=>new Option(g)));$('method-error').hidden=true;this.preview();$('method-dialog').showModal();}
+ edit(method=null){if(!this.options.canMutate()||!this.loaded)return;this.editing=method||{id:'',name:'',color:defaultColor('Nieuw'),description:'',group:'',aliases:[],status:'actief'};this.draftId=method?.id||crypto.randomUUID();$('method-editor-title').textContent=method?'Leermethode bewerken':'Nieuwe leermethode';for(const field of ['name','color','description','group','type'])$('method-'+field).value=this.editing[field]??'';for(const input of $('method-levels').querySelectorAll('input'))input.checked=this.editing.levels?.includes(input.value)??false;$('method-groups').replaceChildren(...[...new Set(this.catalog.map(m=>m.group).filter(Boolean))].sort().map(g=>new Option(g)));$('method-error').hidden=true;this.preview();$('method-dialog').showModal();}
  preview(){const member=this.catalog.find(m=>m.group&&m.group.toLocaleLowerCase('nl')===$('method-group').value.trim().toLocaleLowerCase('nl'));if(member)$('method-color').value=member.color;$('method-color').disabled=!!member||this.locked;$('method-color-hint').hidden=!member;const name=$('method-name').value.trim()||'Voorbeeld';$('method-preview').replaceChildren(methodTag(name,[{name,color:$('method-color').value,description:'',group:'',aliases:[]} ]));}
  async mutate(value){if(!this.options.canMutate())return false;this.saving=true;this.options.setBusy(true);try{await this.store.save(value);await this.refresh();await this.options.afterChange();$('methods-feedback').textContent='Leermethode opgeslagen.';return true;}catch(error){$('method-error').textContent=error.message;$('method-error').hidden=false;$('methods-feedback').textContent=error.message;return false;}finally{this.saving=false;this.options.setBusy(false);}}
- async save(){const value={...this.editing,id:this.draftId,name:$('method-name').value,color:$('method-color').value,description:$('method-description').value,group:$('method-group').value,type:$('method-type').value};if(await this.mutate(value))$('method-dialog').close();}
+ async save(){const value={...this.editing,id:this.draftId,name:$('method-name').value,color:$('method-color').value,description:$('method-description').value,group:$('method-group').value,type:$('method-type').value,levels:[...$('method-levels').querySelectorAll('input:checked')].map(input=>input.value)};if(await this.mutate(value))$('method-dialog').close();}
 }

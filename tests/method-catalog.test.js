@@ -5,7 +5,7 @@ import {SheetsStore,HEADERS,parseRows} from '../data.js';
 import {AnkiMappingsStore} from '../anki-mappings.js';
 import {tagColors} from '../method-tags.js';
 const method={id:'stable',name:'Tobira H1',color:'#31584a',description:'Hoofdstuk één',group:'Tobira',aliases:[],status:'actief'};
-function fixture(){const rows=[METHOD_HEADERS];const api={methodCatalog:[],async request(path,options){if(path.startsWith('?'))return {sheets:[{properties:{title:'Leermethodes'}}]};if(!options)return {values:rows};const data=JSON.parse(options.body);if(options.method==='POST')rows.push(...data.values);else {const i=Number(decodeURIComponent(path).match(/!A(\d+):H/)[1])-1;rows[i]=data.values[0];}return {};}};return {rows,api,store:new MethodsStore(api)};}
+function fixture(){const rows=[METHOD_HEADERS];const api={methodCatalog:[],async request(path,options){if(path.startsWith('?'))return {sheets:[{properties:{title:'Leermethodes'}}]};if(!options)return {values:rows};const data=JSON.parse(options.body);if(options.method==='POST')rows.push(...data.values);else {const i=Number(decodeURIComponent(path).match(/!A(\d+):[HI]/)[1])-1;rows[i]=data.values[0];}return {};}};return {rows,api,store:new MethodsStore(api)};}
 test('catalog edits preserve identity and aliases, rename survives reload and retry',async()=>{const {store,rows}=fixture();await store.save(method);await store.save({...method,name:'Tobira hoofdstuk 1'});await store.save({...method,name:'Tobira hoofdstuk 1'});assert.equal(rows.length,2);const catalog=await store.read();assert.equal(catalog[0].id,'stable');assert.deepEqual(catalog[0].aliases,['Tobira H1']);assert.equal(methodInfo('Tobira H1',catalog).name,'Tobira hoofdstuk 1');assert.equal(resolveMaterials('Tobira H1, VOCAB N3',catalog),'Tobira hoofdstuk 1, VOCAB N3');});
 test('duplicate names and aliases cannot join unrelated histories',async()=>{const {store}=fixture();await store.save(method);await store.save({...method,name:'Chapter 1'});await assert.rejects(()=>store.save({...method,id:'other'}),/al in gebruik/);for(const patch of [{name:'A, B'},{color:'url(bad)'},{description:'x'.repeat(1001)}])assert.throws(()=>validateMethod({...method,...patch}));});
 test('archiving hides future choices while preserving selected and historic tags',()=>{const archived={...method,status:'gearchiveerd'};assert.deepEqual(methodNames([archived],[{materials:'Tobira H1'}]),[]);assert.deepEqual(methodNames([archived],[],['Tobira H1']),['Tobira H1']);assert.equal(methodInfo('Tobira H1',[archived]).color,method.color);});
@@ -15,7 +15,7 @@ test('tag text chooses contrasting foreground for light and dark custom colors',
 
 test('group rename, membership and color update are atomic and preserve method details',async()=>{
  const rows=[METHOD_HEADERS,['a','Tobira H1','#31584a','Keep description','Tobira','[]','actief'],['b','Tobira H2','#31584a','','Tobira','[]','gearchiveerd'],['c','VOCAB N3','#68509c','','N3','[]','actief'],['d','Kanji','#985029','','N3','[]','actief']];let writes=[];
- const api={async request(path,options){if(path.startsWith('?'))return {sheets:[{properties:{title:'Leermethodes'}}]};if(!options)return {values:rows};const body=JSON.parse(options.body);if(path==='/values:batchUpdate'){writes.push(body);for(const update of body.data){const [,column,n]=update.range.match(/!([CE])(\d+):/);rows[Number(n)-1][column==='C'?2:4]=update.values[0][0];}}else {const n=Number(decodeURIComponent(path).match(/!A(\d+):H/)[1]);rows[n-1]=body.values[0];}return {};}};
+ const api={async request(path,options){if(path.startsWith('?'))return {sheets:[{properties:{title:'Leermethodes'}}]};if(!options)return {values:rows};const body=JSON.parse(options.body);if(path==='/values:batchUpdate'){writes.push(body);for(const update of body.data){const [,column,n]=update.range.match(/!([CE])(\d+):/);rows[Number(n)-1][column==='C'?2:4]=update.values[0][0];}}else {const n=Number(decodeURIComponent(path).match(/!A(\d+):[HI]/)[1]);rows[n-1]=body.values[0];}return {};}};
  const store=new MethodsStore(api);await store.saveGroup({original:'Tobira',name:'N3',color:'#112233',ids:['a','c']});
  assert.equal(writes.length,1);assert.ok(writes[0].data.every(d=>/![CE]\d+:[CE]\d+$/.test(d.range)));
  assert.deepEqual(rows.slice(1).map(r=>[r[0],r[4],r[2]]),[['a','N3','#112233'],['b','','#31584a'],['c','N3','#112233'],['d','N3','#112233']]);assert.equal(rows[1][3],'Keep description');assert.equal(rows[2][6],'gearchiveerd');
@@ -106,4 +106,36 @@ test('a seven-column sheet grows before the first group or individual type write
   assert.equal(expanded,1);
   assert.equal((await store.read())[0].type,'Boek');
  }
+});
+
+test('multiple JLPT levels survive legacy sheet expansion and subsequent edits',async()=>{
+ const rows=[METHOD_HEADERS.slice(0,8),[method.id,method.name,method.color,method.description,method.group,'[]',method.status,'Boek']];
+ const properties={title:'Leermethodes',sheetId:42,gridProperties:{columnCount:8}};
+ let expansions=0;
+ const api={async request(path,options){
+  if(path.startsWith('?'))return {sheets:[{properties}]};
+  if(!options)return {values:rows};
+  const body=JSON.parse(options.body);
+  if(path===':batchUpdate'){
+   assert.deepEqual(body.requests,[{appendDimension:{sheetId:42,dimension:'COLUMNS',length:1}}]);
+   properties.gridProperties.columnCount++;
+   expansions++;
+  }else if(decodeURIComponent(path).includes('!I1')){
+   rows[0].push(body.values[0][0]);
+  }else{
+   assert.ok(decodeURIComponent(path).includes('!A2:I2'));
+   rows[1]=body.values[0];
+  }
+  return {};
+ }};
+ const store=new MethodsStore(api);
+ assert.deepEqual((await store.read())[0].levels,[]);
+ await store.save({...method,levels:['N2','N5','N5']});
+ assert.deepEqual((await store.read())[0].levels,['N5','N2']);
+ await store.save({...method,description:'Nieuwe omschrijving'});
+ assert.deepEqual((await store.read())[0].levels,['N5','N2']);
+ await assert.rejects(store.save({...method,levels:['N6']}),/JLPT/);
+ await store.save({...method,levels:[]});
+ assert.deepEqual((await store.read())[0].levels,[]);
+ assert.equal(expansions,1);
 });

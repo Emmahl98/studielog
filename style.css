@@ -45,3 +45,8 @@ input[type=number]{width:100%;border:1px solid #dfe3d9;border-radius:6px;padding
 .method-type-section{min-width:0;margin-block:.5rem 1rem}
 .method-type-title{font-size:1.15rem;margin:0 0 .65rem;padding-bottom:.45rem;border-bottom:1px solid var(--line)}
 @media(max-width:700px){.method-type-columns{grid-template-columns:1fr;gap:.25rem}}
+
+.method-levels-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,165px),1fr));gap:.6rem}
+.method-level-tags,.method-level-options{display:flex;align-items:center;flex-wrap:wrap;gap:.35rem .6rem}
+.method-level-options label{display:flex;align-items:center;gap:.25rem;margin:0}
+.method-level-edit{padding:.15rem 0;text-align:left;max-width:100%}

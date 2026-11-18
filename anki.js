@@ -13,6 +13,30 @@ export class AnkiConnect {
     if(!Object.hasOwn(data,'result'))throw new Error('Onverwacht antwoord van AnkiConnect.');
     return data.result;
   }
+  async decksByTag(){
+    const ids=await this.call('findNotes',{query:'-tag:none'});
+    if(!Array.isArray(ids))throw Error('Ongeldige notitielijst van AnkiConnect.');
+    const decksByTag=new Map();
+    for(let i=0;i<ids.length;i+=250){
+      const notes=await this.call('notesInfo',{notes:ids.slice(i,i+250)});
+      if(!Array.isArray(notes)||notes.some(note=>!Array.isArray(note?.tags)||!Array.isArray(note?.cards)))throw Error('Ongeldige notitiegegevens van AnkiConnect.');
+      const tagsByCard=new Map(notes.flatMap(note=>note.cards.map(card=>[card,note.tags])));
+      const cards=[...tagsByCard.keys()];
+      for(let j=0;j<cards.length;j+=250){
+        const decks=await this.call('getDecks',{cards:cards.slice(j,j+250)});
+        if(!decks||typeof decks!=='object'||Array.isArray(decks)||Object.values(decks).some(value=>!Array.isArray(value)))throw Error('Ongeldige deckgegevens van AnkiConnect.');
+        for(const [deck,cardIds] of Object.entries(decks)){
+          for(const card of cardIds){
+            for(const tag of tagsByCard.get(card)||[]){
+              if(!decksByTag.has(tag))decksByTag.set(tag,new Set());
+              decksByTag.get(tag).add(deck);
+            }
+          }
+        }
+      }
+    }
+    return decksByTag;
+  }
   async reviews(deck=''){
     const query=`rated:31${deck?` deck:${JSON.stringify(deck)}`:''}`;
     const cards=await this.call('findCards',{query});

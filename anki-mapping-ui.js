@@ -1,7 +1,7 @@
 import {methodNames} from './method-catalog.js?v=21';
 import {methodTag} from './method-tags.js?v=21';
 import {AnkiMappingsStore} from './anki-mappings.js?v=26';
-import {methodForDeck} from './anki.js?v=4';
+import {methodForDeck} from './anki.js?v=27';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id);
 export class AnkiMappingUI {
@@ -28,7 +28,10 @@ export class AnkiMappingUI {
     try{
       this.profile=await this.anki.call('getActiveProfile');
       this.options.checkProfile(this.profile);
-      const decks=await this.anki.call(byTag?'getTags':'deckNames');
+      const [decks,tagDecks]=await Promise.all([
+        this.anki.call(byTag?'getTags':'deckNames'),
+        byTag?this.anki.decksByTag():null
+      ]);
       if(!Array.isArray(decks)||decks.some(deck=>typeof deck!=='string'||!deck))throw Error('Ongeldige namen van AnkiConnect.');
       this.mappings=await this.store.read(this.profile);
       const otherMappings=await (byTag?this.deckStore:this.tagStore).read(this.profile);
@@ -38,6 +41,13 @@ export class AnkiMappingUI {
         const row=document.createElement('section');row.className='anki-deck-row';
         const selected=new Set(materialList(Object.hasOwn(this.mappings,deck)?this.mappings[deck]:''));this.selections.set(deck,selected);
         const title=document.createElement('h3');title.className='anki-deck-title';title.textContent=deck;
+        if(byTag){
+          const locations=[...(tagDecks.get(deck)||[])].sort((a,b)=>a.localeCompare(b,'nl',{numeric:true}));
+          const subtitle=document.createElement('small');
+          subtitle.className='anki-tag-decks';
+          subtitle.textContent=locations.length?locations.join(' · '):'Geen deck gevonden';
+          title.append(' ',subtitle);
+        }
         const tags=document.createElement('div');tags.className='anki-method-tags';tags.setAttribute('aria-label',`Geselecteerde lesmethodes voor ${deck}`);
         const dropdown=document.createElement('details');dropdown.className='anki-method-picker';
         const summary=document.createElement('summary');summary.setAttribute('aria-label',`Lesmethodes kiezen voor ${deck}`);

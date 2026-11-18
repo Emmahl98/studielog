@@ -79,6 +79,28 @@ test('tag statistics count each card once and retain its full answer time and re
   assert.deepEqual(groups.get('B').cards.get('1'),{milliseconds:2000,reviews:2,deck:'Main'});
   assert.equal(groups.get(null).cards.size,1);
 });
+
+test('a tag lists every deck containing a card from its notes, including subdecks',async()=>{
+  const anki=new AnkiConnect();
+  anki.call=async(action,params)=>{
+    if(action==='findNotes'){
+      assert.equal(params.query,'-tag:none');
+      return [1,2,3];
+    }
+    if(action==='notesInfo')return [
+      {tags:['Unit'],cards:[10,11]},
+      {tags:['Unit','Unit::Extra'],cards:[12]},
+      {tags:['Unused'],cards:[]}
+    ];
+    assert.equal(action,'getDecks');
+    assert.deepEqual(params.cards,[10,11,12]);
+    return {Main:[10],'Main::Subdeck':[11,12]};
+  };
+  assert.deepEqual(await anki.decksByTag(),new Map([
+    ['Unit',new Set(['Main','Main::Subdeck'])],
+    ['Unit::Extra',new Set(['Main::Subdeck'])]
+  ]));
+});
 test('most specific mapping wins and time is allocated without counting parent decks twice',()=>{
   const mappings={'Tobira':'Tobira','Tobira::H5':'Tobira H5','Other':'Tobira H5'};
   assert.equal(methodForDeck('Tobira::H5::Kanji',mappings),'Tobira H5');

@@ -1,9 +1,10 @@
 import {materialList} from './materials.js';
-export const METHOD_HEADERS=['ID','Naam','Kleur','Omschrijving','Groep','Aliassen','Status'];
+export const METHOD_HEADERS=['ID','Naam','Kleur','Omschrijving','Groep','Aliassen','Status','Type'];
+export const METHOD_TYPES=['Boek','Niveau algemeen'];
 const key=value=>String(value).trim().toLocaleLowerCase('nl');
 export function defaultGroup(name){const chapter=name.match(/^Tobira H\d+$/i);if(chapter)return 'Tobira';const book=name.match(/^H\d+【(.+)】$/);return book?book[1]:'';}
 export function defaultColor(name){const colors=['#31584a','#68509c','#985029','#295f91','#8e3f66','#526323'];let hash=0;for(const c of defaultGroup(name)||name)hash=(hash*31+c.charCodeAt(0))>>>0;return colors[hash%colors.length];}
-export function methodInfo(name,catalog=[]){const known=catalog.find(m=>[m.name,...m.aliases||[]].some(n=>key(n)===key(name)));if(known)return known;const group=defaultGroup(name),color=catalog.find(m=>group&&m.group===group)?.color||defaultColor(name);return {id:'',name,color,description:'',group,aliases:[],status:'actief'};}
+export function methodInfo(name,catalog=[]){const known=catalog.find(m=>[m.name,...m.aliases||[]].some(n=>key(n)===key(name)));if(known)return known;const group=defaultGroup(name),color=catalog.find(m=>group&&m.group===group)?.color||defaultColor(name);return {id:'',name,color,description:'',group,aliases:[],status:'actief',type:''};}
 export function resolveMaterials(value,catalog=[]){return [...new Set(materialList(value).map(name=>methodInfo(name,catalog).name))].join(', ');}
 export function resolveEntry(entry,catalog=[]){
  const materials=resolveMaterials(entry.materials,catalog);const source=materials!==entry.materials?{sourceMaterials:entry.materials,sourceWeights:entry.weights}:{};if(!entry.weights)return {...entry,...source,materials};
@@ -13,6 +14,7 @@ export function resolveEntry(entry,catalog=[]){
 export function methodNames(catalog,entries=[],selected=[]){return [...new Set([...catalog.filter(m=>m.status==='actief').map(m=>m.name),...entries.flatMap(e=>materialList(e.materials)).filter(n=>methodInfo(n,catalog).status!=='gearchiveerd'),...selected].map(n=>methodInfo(n,catalog).name))].sort((a,b)=>{const ga=methodInfo(a,catalog).group||'Overig',gb=methodInfo(b,catalog).group||'Overig';return ga.localeCompare(gb,'nl',{numeric:true})||a.localeCompare(b,'nl',{numeric:true});});}
 export function validateMethod(method,catalog=[]){
  if(!method.id||typeof method.name!=='string'||!method.name.trim()||method.name.length>100||/[,;\n]/.test(method.name)||!/^#[0-9a-f]{6}$/i.test(method.color)||typeof method.description!=='string'||method.description.length>1000||typeof method.group!=='string'||method.group.length>100||!Array.isArray(method.aliases)||method.aliases.some(a=>typeof a!=='string'||!a.trim()||/[,;\n]/.test(a))||!['actief','gearchiveerd'].includes(method.status))throw Error('Vul een naam (zonder komma), geldige kleur en maximaal 1000 tekens omschrijving in.');
+ if(method.type!==undefined&&method.type!==''&&!METHOD_TYPES.includes(method.type))throw Error('Kies Boek of Niveau algemeen als type leermethode.');
  const names=[method.name,...method.aliases].map(key);
  if(catalog.some(other=>other.id!==method.id&&[other.name,...other.aliases].some(n=>names.includes(key(n)))))throw Error('Deze naam is al in gebruik door een andere leermethode.');
 }
@@ -21,10 +23,13 @@ export class MethodsStore{
  range(value){return encodeURIComponent(`'Leermethodes'!${value}`);}
  async read(){
   const meta=await this.sheets.request('?fields=sheets.properties.title');
+  this.hasTypeHeader=false;
   if(!meta.sheets?.some(s=>s.properties.title==='Leermethodes'))return [];
-  const {values=[]}=await this.sheets.request(`/values/${this.range('A1:G')}?valueRenderOption=UNFORMATTED_VALUE`);
-  if(!METHOD_HEADERS.every((h,i)=>values[0]?.[i]===h))throw Error('De kolommen in Leermethodes zijn gewijzigd.');
-  const result=values.slice(1).flatMap((r,i)=>{if(!r.some(v=>v!==''))return [];let aliases;try{aliases=JSON.parse(r[5]||'[]');}catch{throw Error('Ongeldige aliassen in Leermethodes.');}return [{id:r[0],name:r[1],color:r[2],description:r[3]||'',group:r[4]||'',aliases,status:r[6],rowNumber:i+2}];});
+  const {values=[]}=await this.sheets.request(`/values/${this.range('A1:H')}?valueRenderOption=UNFORMATTED_VALUE`);
+  const header=values[0];
+  this.hasTypeHeader=header?.[7]==='Type';
+  if(!METHOD_HEADERS.slice(0,7).every((h,i)=>header?.[i]===h)||(!this.hasTypeHeader&&header[7]))throw Error('De kolommen in Leermethodes zijn gewijzigd.');
+  const result=values.slice(1).flatMap((r,i)=>{if(!r.some(v=>v!==''))return [];let aliases;try{aliases=JSON.parse(r[5]||'[]');}catch{throw Error('Ongeldige aliassen in Leermethodes.');}return [{id:r[0],name:r[1],color:r[2],description:r[3]||'',group:r[4]||'',aliases,status:r[6],type:r[7]??'',rowNumber:i+2}];});
   const ids=new Set();for(const m of result){if(ids.has(m.id))throw Error('Dubbel leermethode-ID.');ids.add(m.id);validateMethod(m,result);}return result;
  }
  async saveGroup({original='',name='',color,ids=[],remove=false}){
@@ -41,10 +46,21 @@ export class MethodsStore{
   const catalog=await this.read(),old=catalog.find(m=>m.id===method.id);
   const aliases=[...new Set([...(old?.aliases||[]),...(method.aliases||[]),...(old&&old.name!==method.name.trim()?[old.name]:[])])].filter(n=>key(n)!==key(method.name));
   const group=method.group.trim(),groupMember=group?catalog.find(m=>m.group.toLocaleLowerCase('nl')===group.toLocaleLowerCase('nl')):null;
-  const value={...method,name:method.name.trim(),group:groupMember?.group||group,color:groupMember?.color||method.color,description:method.description.trim(),aliases};validateMethod(value,catalog);
-  if(!catalog.length){const meta=await this.sheets.request('?fields=sheets.properties.title');if(!meta.sheets?.some(s=>s.properties.title==='Leermethodes')){await this.sheets.request(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{addSheet:{properties:{title:'Leermethodes'}}}]})});await this.sheets.request(`/values/${this.range('A1:G1')}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[METHOD_HEADERS]})});}}
-  const values=[[value.id,value.name,value.color,value.description,value.group,JSON.stringify(value.aliases),value.status]];
-  const range=old?`A${old.rowNumber}:G${old.rowNumber}`:'A:G';
+  const value={...method,name:method.name.trim(),group:groupMember?.group||group,color:groupMember?.color||method.color,description:method.description.trim(),aliases,type:method.type??old?.type??''};validateMethod(value,catalog);
+  if(!catalog.length){
+   const meta=await this.sheets.request('?fields=sheets.properties.title');
+   if(!meta.sheets?.some(s=>s.properties.title==='Leermethodes')){
+    await this.sheets.request(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{addSheet:{properties:{title:'Leermethodes'}}}]})});
+    await this.sheets.request(`/values/${this.range('A1:H1')}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[METHOD_HEADERS]})});
+    this.hasTypeHeader=true;
+   }
+  }
+  if(!this.hasTypeHeader){
+   await this.sheets.request(`/values/${this.range('H1')}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[['Type']]})});
+   this.hasTypeHeader=true;
+  }
+  const values=[[value.id,value.name,value.color,value.description,value.group,JSON.stringify(value.aliases),value.status,value.type]];
+  const range=old?`A${old.rowNumber}:H${old.rowNumber}`:'A:H';
   await this.sheets.request(`/values/${this.range(range)}${old?'?valueInputOption=RAW':':append?valueInputOption=RAW&insertDataOption=INSERT_ROWS'}`,{method:old?'PUT':'POST',body:JSON.stringify({values})});
  }
 }

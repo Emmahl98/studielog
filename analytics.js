@@ -1,5 +1,6 @@
 import {localDate,validDate} from './data.js?v=18';
 import {methodShares} from './weights.js';
+import {methodInfo,levelShares} from './method-catalog.js?v=35';
 import {materialList} from './materials.js';
 export const CHART_HEADERS=['ID','Naam','Periode','Groepering','Weergave','Methode','Status','Van','Tot','Sortering','Doelkleuren'];
 // Keep existing single-method settings readable; multiple choices share the same Sheet column.
@@ -10,10 +11,24 @@ export function selectedMethods(value){
 }
 export function validateChart(chart){
   if(chart.sort&&!['label-asc','label-desc','hours-asc','hours-desc'].includes(chart.sort))throw Error('Kies een geldige sortering.');
-  if(!chart.id||!chart.name?.trim()||chart.name.length>100||!['1','3','7','30','90','all','custom'].includes(chart.period)||!['day','type','method'].includes(chart.group)||!['bar','line'].includes(chart.view)||typeof chart.method!=='string'||chart.method.length>2000)throw Error('Vul een geldige naam en grafiekinstellingen in.');
+  if(!chart.id||!chart.name?.trim()||chart.name.length>100||!['1','3','7','30','90','all','custom'].includes(chart.period)||!['day','type','method','jlpt','book','general-level'].includes(chart.group)||!['bar','line'].includes(chart.view)||typeof chart.method!=='string'||chart.method.length>2000)throw Error('Vul een geldige naam en grafiekinstellingen in.');
   if(chart.period==='custom'&&(!validDate(chart.from)||!validDate(chart.to)||chart.from>chart.to))throw Error('Kies een geldige begin- en einddatum.');
 }
-export function chartData(entries,chart,today=localDate()){
+export function chartData(entries,chart,today=localDate(),catalog=[]){
+  const byCatalog=['jlpt','book','general-level'].includes(chart.group);
+  const bucketsByMethod=new Map();
+  function buckets(name){
+    if(!bucketsByMethod.has(name)){
+      const method=methodInfo(name,catalog);
+      const labels=chart.group==='jlpt'
+        ? levelShares(method).map(([level,share])=>[`JLPT ${level}`,share])
+        : chart.group==='book'&&method.type==='Boek' ? [[method.group||method.name,1]]
+        : chart.group==='general-level'&&method.type==='Niveau algemeen' ? [[method.name,1]]
+        : [];
+      bucketsByMethod.set(name,labels);
+    }
+    return bucketsByMethod.get(name);
+  }
   let from=chart.from,to=chart.period==='custom'?chart.to:today;
   if(chart.period!=='custom'){if(chart.period==='all')from=entries.reduce((min,e)=>e.date<min?e.date:min,today);else {const d=new Date(`${today}T12:00:00`);d.setDate(d.getDate()-Number(chart.period)+1);from=localDate(d);}}
   const methods=selectedMethods(chart.method);
@@ -22,8 +37,25 @@ export function chartData(entries,chart,today=localDate()){
   // Calendar days, including days without study. Long ranges are grouped by month.
   const monthly=chart.group==='day'&&(new Date(to)-new Date(from))/86400000>120;
   if(chart.group==='day'){let d=new Date(`${from}T12:00:00`);const end=new Date(`${to}T12:00:00`);for(let i=0;d<=end&&i<37000;i++,d.setDate(d.getDate()+1)){const key=localDate(d).slice(0,monthly?7:10);groups.set(key,0);}}
-  let minutes=0,missing=0;
-  for(const e of selected){if(!Number.isFinite(e.minutes)){missing++;continue;}
+  let minutes=0,missing=0,count=0;
+  for(const e of selected){
+    if(byCatalog){
+      if(!materialList(e.materials).length)continue;
+      const allocations=methodShares(e)
+        .filter(([method])=>!methods.length||methods.includes(method))
+        .flatMap(([method,share])=>buckets(method).map(([label,fraction])=>[label,share*fraction]));
+      if(!allocations.length)continue;
+      count++;
+      if(!Number.isFinite(e.minutes)){missing++;continue;}
+      for(const [label,share] of allocations){
+        const duration=e.minutes*share;
+        groups.set(label,(groups.get(label)||0)+duration);
+        minutes+=duration;
+      }
+      continue;
+    }
+    count++;
+    if(!Number.isFinite(e.minutes)){missing++;continue;}
     const shares=methodShares(e).filter(([method])=>!methods.length||methods.includes(method));
     const contribution=shares.reduce((sum,[,share])=>sum+e.minutes*share,0);minutes+=contribution;
     const allocations=chart.group==='method'?shares.map(([key,share])=>[key,e.minutes*share]):[[chart.group==='day'?e.date.slice(0,monthly?7:10):e.type==='les'?'Les':'Sessie',contribution]];
@@ -32,7 +64,7 @@ export function chartData(entries,chart,today=localDate()){
   const points=[...groups].map(([label,minutes])=>({label,hours:minutes/60}));const sort=chart.sort||(chart.group==='day'?'label-asc':'hours-desc');
   const collator=new Intl.Collator('nl',{numeric:true,sensitivity:'base'});
   points.sort((a,b)=>{const compared=sort.startsWith('hours')?a.hours-b.hours:collator.compare(a.label,b.label);return (sort.endsWith('desc')?-compared:compared)||collator.compare(a.label,b.label);});
-  return{points,hours:minutes/60,count:selected.length,missing,from,to,monthly};
+  return{points,hours:minutes/60,count,missing,from,to,monthly};
 }
 export class ChartStore{
  constructor(sheets){this.sheets=sheets;}

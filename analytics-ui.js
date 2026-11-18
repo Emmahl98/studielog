@@ -1,7 +1,7 @@
 import {methodNames,resolveMaterials} from './method-catalog.js?v=21';
 import {methodTag} from './method-tags.js?v=21';
 import {displayDate,inputDate} from './dates.js?v=14';
-import {ChartStore,chartData,selectedMethods} from './analytics.js?v=18';
+import {ChartStore,chartData,selectedMethods} from './analytics.js?v=35';
 import {goalColors} from './goal-colors.js?v=13';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
@@ -37,13 +37,14 @@ export class AnalyticsUI{
   const list=$('data-charts');list.replaceChildren();const charts=this.layout?this.layout.sorted(this.charts.filter(c=>c.status==='actief'),'charts'):this.charts.filter(c=>c.status==='actief');
   if(!this.studyLoaded){list.append(node('p','notes-empty','Verbind met Google om je studiedata te bekijken.'));return;}
   if(!charts.length){list.append(node('p','notes-empty','Nog geen grafieken. Kies ‘Grafiek toevoegen’ om je eerste grafiek te maken.'));return;}
-  for(const original of charts){const chart=this.canonical(original);const data=chartData(this.entries,chart),card=node('article','chart-card'),head=node('div','chart-heading');card.dataset.orderKind='charts';card.dataset.orderId=chart.id;const title=node('div','sort-title');if(this.layout)title.append(this.layout.handle('charts',chart.id,chart.name));title.append(node('h3','',chart.name));head.append(title);const actions=node('div','goal-actions');
+  for(const original of charts){const chart=this.canonical(original);const data=chartData(this.entries,chart,undefined,this.sheets.methodCatalog||[]),card=node('article','chart-card'),head=node('div','chart-heading');card.dataset.orderKind='charts';card.dataset.orderId=chart.id;const title=node('div','sort-title');if(this.layout)title.append(this.layout.handle('charts',chart.id,chart.name));title.append(node('h3','',chart.name));head.append(title);const actions=node('div','goal-actions');
    for(const [label,action] of [['Wijzigen',()=>this.edit(chart)],['Verwijderen',()=>{if(!this.canMutate())return;this.deleting=chart.id;$('chart-delete-name').textContent=chart.name;$('chart-delete-dialog').showModal();}]]){const b=node('button','text-button',label);b.type='button';b.dataset.chartAction='';b.setAttribute('aria-label',`${label}: ${chart.name}`);b.addEventListener('click',action);actions.append(b);}head.append(actions);card.append(head,node('p','chart-total',`${fmt.format(data.hours)} uur · ${data.count} ${data.count===1?'item':'items'}`),node('p','goal-feedback',`${displayDate(data.from)} t/m ${displayDate(data.to)}${selectedMethods(chart.method).length?' · '+selectedMethods(chart.method).join(', '):''}`));
    let colored;
    if(chart.goalColors){colored=goalColors(this.entries,this.highlight,data);if(colored.status){card.classList.add(`goal-card-${colored.status}`);data.points=colored.points;card.append(node('p','chart-goal-legend',`Highlight: ${this.highlight.name} · huidig dagtempo ${fmt.format(colored.target)} uur. Gemiddeld ${fmt.format(colored.average)} uur per dag over ${colored.days} dagen: ${colored.status==='green'?'op schema':'onder dagtempo'}. Groen = op/boven tempo, oranje = eronder.`));}else card.append(node('p','goal-feedback',colored.message));}
    if(data.missing)card.append(node('p','goal-feedback',`${data.missing} items zonder duur zijn niet meegeteld in de uren.`));
    if(!data.points.length||(data.hours===0&&!colored?.status))card.append(node('p','notes-empty','Geen geregistreerde studietijd in deze selectie.'));
    else if(chart.view==='line')card.append(this.line(data.points));else card.append(this.bars(data.points));
+   if(chart.group==='jlpt')card.append(node('p','goal-feedback','De tijd per leermethode wordt gelijk verdeeld over de gekoppelde JLPT-niveaus.'));
    if(chart.group==='method')card.append(node('p','goal-feedback','Uren volgen de percentages per studie-item. Zonder aangepaste percentages wordt de tijd gelijk verdeeld.'));
    if(data.monthly)card.append(node('p','goal-feedback','Lange periodes worden per maand getoond.'));
    const details=node('details','chart-table'),summary=node('summary','','Bekijk cijfers'),table=node('table'),header=node('tr');header.append(node('th','','Groep'),node('th','','Uren'),node('th','','Dagtempo'));table.append(header);for(const p of data.points){const row=node('tr');row.append(node('td','',displayDate(p.label)),node('td','',fmt.format(p.hours)),node('td','',p.goalStatus==='green'?'Op schema':p.goalStatus==='orange'?'Onder dagtempo':'—'));table.append(row);}details.append(summary,table);card.append(details);list.append(card);

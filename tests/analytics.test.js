@@ -54,3 +54,28 @@ test('multiple method choices survive saving and reloading',async()=>{
  const method=JSON.stringify(['Tobira','Tobira H6']);await store.save({...config,method});
  assert.equal((await store.read())[0].method,method);
 });
+
+test('JLPT, book and general-level charts allocate the matching method hours',()=>{
+ const catalog=[
+  {name:'Hoofdstuk 1',type:'Boek',group:'Tobira',levels:['N4','N3']},
+  {name:'Hoofdstuk 2',type:'Boek',group:'Tobira',levels:['N3']},
+  {name:'Grammatica',type:'Niveau algemeen',levels:['N3']}
+ ];
+ const date='2026-11-15';
+ const activity=[
+  {date,minutes:100,materials:'Hoofdstuk 1, Grammatica',weights:{'Hoofdstuk 1':60,Grammatica:40}},
+  {date,minutes:30,materials:'Hoofdstuk 2'},
+  {date,minutes:20,materials:'Anders'},
+  {date,minutes:null,materials:'Grammatica'}
+ ];
+ const run=(group,method='')=>chartData(activity,{...config,group,method},date,catalog);
+ const jlpt=run('jlpt');
+ assert.deepEqual(jlpt.points.map(p=>[p.label,p.hours]),[['JLPT N3',100/60],['JLPT N4',.5]]);
+ assert.equal(jlpt.hours,130/60);
+ assert.equal(jlpt.count,3);
+ assert.equal(jlpt.missing,1);
+ assert.deepEqual(run('book').points,[{label:'Tobira',hours:1.5}]);
+ assert.deepEqual(run('general-level').points,[{label:'Grammatica',hours:40/60}]);
+ assert.deepEqual(run('jlpt','Hoofdstuk 1').points,[{label:'JLPT N3',hours:.5},{label:'JLPT N4',hours:.5}]);
+ for(const group of ['jlpt','book','general-level'])assert.doesNotThrow(()=>validateChart({...config,group}));
+});

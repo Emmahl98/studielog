@@ -22,15 +22,24 @@ export class MethodsStore{
  constructor(sheets){this.sheets=sheets;}
  range(value){return encodeURIComponent(`'Leermethodes'!${value}`);}
  async read(){
-  const meta=await this.sheets.request('?fields=sheets.properties.title');
+  const meta=await this.sheets.request('?fields=sheets.properties(sheetId,title,gridProperties(columnCount))');
+  this.sheet=meta.sheets?.find(s=>s.properties.title==='Leermethodes')?.properties;
   this.hasTypeHeader=false;
-  if(!meta.sheets?.some(s=>s.properties.title==='Leermethodes'))return [];
-  const {values=[]}=await this.sheets.request(`/values/${this.range('A1:H')}?valueRenderOption=UNFORMATTED_VALUE`);
+  if(!this.sheet)return [];
+  const columns=this.sheet.gridProperties?.columnCount??METHOD_HEADERS.length;
+  const range=columns<METHOD_HEADERS.length?'A1:G':'A1:H';
+  const {values=[]}=await this.sheets.request(`/values/${this.range(range)}?valueRenderOption=UNFORMATTED_VALUE`);
   const header=values[0];
   this.hasTypeHeader=header?.[7]==='Type';
   if(!METHOD_HEADERS.slice(0,7).every((h,i)=>header?.[i]===h)||(!this.hasTypeHeader&&header[7]))throw Error('De kolommen in Leermethodes zijn gewijzigd.');
   const result=values.slice(1).flatMap((r,i)=>{if(!r.some(v=>v!==''))return [];let aliases;try{aliases=JSON.parse(r[5]||'[]');}catch{throw Error('Ongeldige aliassen in Leermethodes.');}return [{id:r[0],name:r[1],color:r[2],description:r[3]||'',group:r[4]||'',aliases,status:r[6],type:r[7]??'',rowNumber:i+2}];});
   const ids=new Set();for(const m of result){if(ids.has(m.id))throw Error('Dubbel leermethode-ID.');ids.add(m.id);validateMethod(m,result);}return result;
+ }
+ async ensureTypeColumn(){
+  const columns=this.sheet?.gridProperties?.columnCount;
+  if(columns===undefined||columns>=METHOD_HEADERS.length)return;
+  const appendDimension={sheetId:this.sheet.sheetId,dimension:'COLUMNS',length:METHOD_HEADERS.length-columns};
+  await this.sheets.request(':batchUpdate',{method:'POST',body:JSON.stringify({requests:[{appendDimension}]})});
  }
  async saveGroup({original='',name='',color,ids=[],remove=false,type=''}){
   const catalog=await this.read(),selected=new Set(ids),target=name.trim();
@@ -46,7 +55,10 @@ export class MethodsStore{
     ...(inGroup&&type&&m.type!==type?[{range:`'Leermethodes'!H${m.rowNumber}:H${m.rowNumber}`,values:[[type]]}]:[])
    ];
   });
-  if(type&&!remove&&!this.hasTypeHeader)data.unshift({range:"'Leermethodes'!H1",values:[['Type']]});
+  if(type&&!remove){
+   await this.ensureTypeColumn();
+   if(!this.hasTypeHeader)data.unshift({range:"'Leermethodes'!H1",values:[['Type']]});
+  }
   if(data.length)await this.sheets.request('/values:batchUpdate',{method:'POST',body:JSON.stringify({valueInputOption:'RAW',data})});
  }
  async save(method){
@@ -63,6 +75,7 @@ export class MethodsStore{
    }
   }
   if(!this.hasTypeHeader){
+   await this.ensureTypeColumn();
    await this.sheets.request(`/values/${this.range('H1')}?valueInputOption=RAW`,{method:'PUT',body:JSON.stringify({values:[['Type']]})});
    this.hasTypeHeader=true;
   }

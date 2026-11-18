@@ -50,7 +50,12 @@ export class SheetsStore {
       if (response.status===401) throw new Error('Je Google-verbinding is verlopen. Verbind opnieuw; je invoer blijft staan.');
       if (response.status===403) throw new Error('Geen toegang tot de spreadsheet. Gebruik het Google-account dat toegang heeft en geef toestemming voor Google Sheets. Controleer ook of de Sheets API is ingeschakeld.');
       if (response.status===429) throw new Error('Google Sheets is even druk. Wacht een minuut en probeer opnieuw.');
-      throw new Error(`Google Sheets kon de actie niet uitvoeren (${response.status}). Je invoer blijft staan.`);
+      let detail='';
+      if(response.status===400){
+        const body=await response.json().catch(()=>null);
+        if(typeof body?.error?.message==='string')detail=' '+body.error.message.slice(0,300);
+      }
+      throw new Error(`Google Sheets kon de actie niet uitvoeren (${response.status}).${detail} Je invoer blijft staan.`);
     }
     return response.json();
   }

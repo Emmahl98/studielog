@@ -1,6 +1,6 @@
 import {DashboardLayout} from './dashboard-ui.js?v=25';
-import {MethodsUI} from './methods-ui.js?v=29';
-import {methodNames,methodInfo,resolveMaterials} from './method-catalog.js?v=29';
+import {MethodsUI} from './methods-ui.js?v=30';
+import {methodNames,methodInfo,resolveMaterials} from './method-catalog.js?v=30';
 import {methodTag} from './method-tags.js?v=22';
 import {AnkiMappingUI} from './anki-mapping-ui.js?v=27';
 import {AnkiConnect,syncAnki} from './anki.js?v=27';
@@ -10,7 +10,7 @@ import {AnalyticsUI} from './analytics-ui.js?v=25';
 import {WeightsUI} from './weights-ui.js?v=21';
 import {materialList} from './materials.js';
 import {config} from './config.js';
-import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=21';
+import {localDate, groupEntries, SheetsStore, validMinutes} from './data.js?v=30';
 import {studyProgress,validGoal} from './progress.js?v=5';
 import {GoalsStore} from './goals.js?v=13';
 import {goalSchedule} from './goal-schedule.js?v=8';

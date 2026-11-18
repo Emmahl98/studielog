@@ -1,4 +1,4 @@
-import {MethodsStore,methodInfo,defaultGroup,defaultColor} from './method-catalog.js?v=29';
+import {MethodsStore,methodInfo,defaultGroup,defaultColor} from './method-catalog.js?v=30';
 import {materialList} from './materials.js';
 import {methodTag,tagColors} from './method-tags.js?v=22';
 const $=id=>document.getElementById(id);

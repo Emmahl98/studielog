@@ -73,3 +73,37 @@ test('group type updates every resulting member in one write, including on a leg
  await store.saveGroup({original:'Nieuw',remove:true,type:'Niveau algemeen'});
  assert.deepEqual(rows.slice(1).map(row=>row[7]),['Boek',undefined,'Boek','Boek']);
 });
+
+test('a seven-column sheet grows before the first group or individual type write',async()=>{
+ for(const action of ['group','method']){
+  const rows=[METHOD_HEADERS.slice(0,7),[method.id,method.name,method.color,method.description,method.group,'[]',method.status]];
+  const properties={title:'Leermethodes',sheetId:42,gridProperties:{columnCount:7}};
+  let expanded=0;
+  const api={async request(path,options){
+   if(path.startsWith('?'))return {sheets:[{properties}]};
+   const range=decodeURIComponent(path);
+   if(!options){
+    assert.ok(range.includes(properties.gridProperties.columnCount===7?'!A1:G':'!A1:H'));
+    return {values:rows};
+   }
+   const body=JSON.parse(options.body);
+   if(path===':batchUpdate'){
+    assert.deepEqual(body.requests,[{appendDimension:{sheetId:42,dimension:'COLUMNS',length:1}}]);
+    properties.gridProperties.columnCount++;
+    expanded++;
+   }else{
+    assert.equal(properties.gridProperties.columnCount,8);
+    if(path==='/values:batchUpdate')for(const item of body.data)rows[Number(item.range.match(/!H(\d+)/)[1])-1][7]=item.values[0][0];
+    else if(range.includes('!H1'))rows[0][7]=body.values[0][0];
+    else rows[1]=body.values[0];
+   }
+   return {};
+  }};
+  const store=new MethodsStore(api);
+  const save=()=>action==='group'?store.saveGroup({original:'Tobira',name:'Tobira',color:method.color,ids:[method.id],type:'Boek'}):store.save({...method,type:'Boek'});
+  await save();
+  await save();
+  assert.equal(expanded,1);
+  assert.equal((await store.read())[0].type,'Boek');
+ }
+});

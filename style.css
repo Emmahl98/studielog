@@ -51,9 +51,7 @@ input[type=number]{width:100%;border:1px solid #dfe3d9;border-radius:6px;padding
 .method-level-options label{display:flex;align-items:center;gap:.25rem;margin:0}
 .method-level-edit{padding:.15rem 0;text-align:left;max-width:100%}
 
-.chart-duration{white-space:nowrap}
-.chart-hours{font-size:.72em;font-weight:400;color:#52675b}
-.chart-bars-goal .chart-bar-row{grid-template-columns:minmax(70px,1fr) minmax(24px,2fr) max-content}
+.goal-daily-hours{font-size:.72em;font-weight:400;color:#52675b}
 .chart-goal-summary{margin:12px 0;padding:10px 12px;border:1px solid currentColor;border-radius:8px;font-size:14px}
 .chart-goal-heading,.chart-goal-metrics{display:flex;flex-wrap:wrap;gap:6px 16px}
 .chart-goal-status{font-weight:600}
@@ -61,5 +59,4 @@ input[type=number]{width:100%;border:1px solid #dfe3d9;border-radius:6px;padding
 .goal-card-orange .chart-goal-status{color:#8d4b0d}
 .chart-goal-metrics{margin-top:6px}
 .chart-goal-metric{display:flex;flex-direction:column}
-.chart-goal-metric>.chart-duration{font-weight:600}
 .chart-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}

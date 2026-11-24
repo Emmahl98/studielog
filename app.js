@@ -6,7 +6,7 @@ import {AnkiMappingUI} from './anki-mapping-ui.js?v=27';
 import {AnkiConnect,syncAnki} from './anki.js?v=27';
 import {AnkiStatsUI} from './anki-stats-ui.js?v=27';
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=36';
+import {AnalyticsUI} from './analytics-ui.js?v=37';
 import {WeightsUI} from './weights-ui.js?v=21';
 import {materialList} from './materials.js';
 import {config} from './config.js';
@@ -198,7 +198,16 @@ function makeGoalCard(item){
   const highlightLabel=node('label','highlight-label'),checkbox=document.createElement('input');checkbox.type='checkbox';checkbox.checked=item.id===highlightedGoalId;checkbox.dataset.goalAction='';checkbox.setAttribute('aria-label',`Highlight: ${item.name}`);checkbox.addEventListener('change',()=>mutateGoal(()=>goalsStore.setHighlight(checkbox.checked?item.id:''),'Highlight bijgewerkt.'));highlightLabel.append(checkbox,document.createTextNode('Highlight'));titleRow.append(highlightLabel);article.append(titleRow);
   const datesRow=node('div','goal-dates-row');datesRow.append(node('p','goal-status',progress.scheduled?`Start ${displayDate(item.startDate)}`:item.startDate?`Live · ${displayDate(item.startDate)}`:'Live'));if(item.deadline)datesRow.append(node('p','goal-dates',`Deadline ${displayDate(item.deadline)}`));article.append(datesRow);
   if(item.deadline){
-    article.append(node('p','goal-daily',progress.remaining===0?'0 uur per dag · doel behaald':progress.overdue?'Deadline verstreken':`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours)} uur per dag${progress.scheduled?' vanaf de startdatum':''}`));
+    const daily=node('p','goal-daily');
+    if(progress.overdue&&progress.remaining>0)daily.textContent='Deadline verstreken';
+    else if(progress.dailyHours!==null){
+      const minutes=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:0,roundingMode:'ceil'}).format(progress.dailyHours*60);
+      daily.textContent=`${minutes} min per dag `;
+      daily.append(node('small','goal-daily-hours',`(${hoursFormatter.format(progress.dailyHours)} u)`));
+      if(progress.remaining===0)daily.append(' · doel behaald');
+      else if(progress.scheduled)daily.append(' vanaf de startdatum');
+    }
+    if(daily.textContent)article.append(daily);
     if(progress.dailyHours!==null)article.append(node('p','goal-weekly',`${new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2,roundingMode:'ceil'}).format(progress.dailyHours*7)} uur per week`));}
   const ring=node('div','hours-ring');ring.setAttribute('role','img');ring.setAttribute('aria-label',`${hoursFormatter.format(progress.hours)} van ${hoursFormatter.format(item.hours)} uur, ${hoursFormatter.format(progress.percentage)} procent.`);
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 176 176');svg.setAttribute('aria-hidden','true');

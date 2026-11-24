@@ -6,6 +6,26 @@ import {goalColors} from './goal-colors.js?v=13';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id),fmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:2});
 function node(tag,cls,text){const el=document.createElement(tag);if(cls)el.className=cls;if(text!==undefined)el.textContent=text;return el;}
+const minuteFmt=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:0});
+const minutes=hours=>minuteFmt.format(hours*60);
+function duration(hours,{goal=false,short=false,range=''}={}){
+ const value=node('span','chart-duration',goal?`${range}${minutes(hours)} min`:`${range}${fmt.format(hours)} ${short?'u':'uur'}`);
+ if(goal)value.append(document.createTextNode(' '),node('small','chart-hours',`(${range}${fmt.format(hours)} u)`));
+ return value;
+}
+function goalSummary(name,{target,average,days,status}){
+ const summary=node('div','chart-goal-summary');
+ const heading=node('div','chart-goal-heading');
+ heading.append(node('strong','',name),node('span','chart-goal-status',status==='green'?'Op schema':'Onder dagtempo'));
+ const metrics=node('div','chart-goal-metrics');
+ for(const [label,hours] of [['Nodig per dag',target],[`Gem. per dag · ${days} ${days===1?'dag':'dagen'}`,average]]){
+  const metric=node('div','chart-goal-metric');
+  metric.append(node('span','',label),duration(hours,{goal:true}));
+  metrics.append(metric);
+ }
+ summary.append(heading,metrics);
+ return summary;
+}
 export class AnalyticsUI{
  constructor(sheets,{setBusy,canMutate}){this.store=new ChartStore(sheets);this.sheets=sheets;this.setBusy=setBusy;this.canMutate=canMutate;this.charts=[];this.entries=[];this.loaded=false;this.id=null;this.studyLoaded=false;
   $('new-chart').addEventListener('click',()=>this.edit());$('chart-cancel').addEventListener('click',()=>$('chart-dialog').close());
@@ -38,20 +58,23 @@ export class AnalyticsUI{
   if(!this.studyLoaded){list.append(node('p','notes-empty','Verbind met Google om je studiedata te bekijken.'));return;}
   if(!charts.length){list.append(node('p','notes-empty','Nog geen grafieken. Kies ‘Grafiek toevoegen’ om je eerste grafiek te maken.'));return;}
   for(const original of charts){const chart=this.canonical(original);const data=chartData(this.entries,chart,undefined,this.sheets.methodCatalog||[]),card=node('article','chart-card'),head=node('div','chart-heading');card.dataset.orderKind='charts';card.dataset.orderId=chart.id;const title=node('div','sort-title');if(this.layout)title.append(this.layout.handle('charts',chart.id,chart.name));title.append(node('h3','',chart.name));head.append(title);const actions=node('div','goal-actions');
-   for(const [label,action] of [['Wijzigen',()=>this.edit(chart)],['Verwijderen',()=>{if(!this.canMutate())return;this.deleting=chart.id;$('chart-delete-name').textContent=chart.name;$('chart-delete-dialog').showModal();}]]){const b=node('button','text-button',label);b.type='button';b.dataset.chartAction='';b.setAttribute('aria-label',`${label}: ${chart.name}`);b.addEventListener('click',action);actions.append(b);}head.append(actions);card.append(head,node('p','chart-total',`${fmt.format(data.hours)} uur · ${data.count} ${data.count===1?'item':'items'}`),node('p','goal-feedback',`${displayDate(data.from)} t/m ${displayDate(data.to)}${selectedMethods(chart.method).length?' · '+selectedMethods(chart.method).join(', '):''}`));
+   for(const [label,action] of [['Wijzigen',()=>this.edit(chart)],['Verwijderen',()=>{if(!this.canMutate())return;this.deleting=chart.id;$('chart-delete-name').textContent=chart.name;$('chart-delete-dialog').showModal();}]]){const b=node('button','text-button',label);b.type='button';b.dataset.chartAction='';b.setAttribute('aria-label',`${label}: ${chart.name}`);b.addEventListener('click',action);actions.append(b);}head.append(actions);
+   const total=node('p','chart-total');
+   total.append(duration(data.hours,{goal:chart.goalColors}),document.createTextNode(` · ${data.count} ${data.count===1?'item':'items'}`));
+   card.append(head,total,node('p','goal-feedback',`${displayDate(data.from)} t/m ${displayDate(data.to)}${selectedMethods(chart.method).length?' · '+selectedMethods(chart.method).join(', '):''}`));
    let colored;
-   if(chart.goalColors){colored=goalColors(this.entries,this.highlight,data);if(colored.status){card.classList.add(`goal-card-${colored.status}`);data.points=colored.points;card.append(node('p','chart-goal-legend',`Highlight: ${this.highlight.name} · huidig dagtempo ${fmt.format(colored.target)} uur. Gemiddeld ${fmt.format(colored.average)} uur per dag over ${colored.days} dagen: ${colored.status==='green'?'op schema':'onder dagtempo'}. Groen = op/boven tempo, oranje = eronder.`));}else card.append(node('p','goal-feedback',colored.message));}
+   if(chart.goalColors){colored=goalColors(this.entries,this.highlight,data);if(colored.status){card.classList.add(`goal-card-${colored.status}`);data.points=colored.points;card.append(goalSummary(this.highlight.name,colored));}else card.append(node('p','goal-feedback',colored.message));}
    if(data.missing)card.append(node('p','goal-feedback',`${data.missing} items zonder duur zijn niet meegeteld in de uren.`));
    if(!data.points.length||(data.hours===0&&!colored?.status))card.append(node('p','notes-empty','Geen geregistreerde studietijd in deze selectie.'));
-   else if(chart.view==='line')card.append(this.line(data.points));else card.append(this.bars(data.points));
+   else if(chart.view==='line')card.append(this.line(data.points,chart.goalColors));else card.append(this.bars(data.points,chart.goalColors));
    if(chart.group==='jlpt')card.append(node('p','goal-feedback','De tijd per leermethode wordt gelijk verdeeld over de gekoppelde JLPT-niveaus.'));
    if(chart.group==='method')card.append(node('p','goal-feedback','Uren volgen de percentages per studie-item. Zonder aangepaste percentages wordt de tijd gelijk verdeeld.'));
    if(data.monthly)card.append(node('p','goal-feedback','Lange periodes worden per maand getoond.'));
-   const details=node('details','chart-table'),summary=node('summary','','Bekijk cijfers'),table=node('table'),header=node('tr');header.append(node('th','','Groep'),node('th','','Uren'),node('th','','Dagtempo'));table.append(header);for(const p of data.points){const row=node('tr');row.append(node('td','',displayDate(p.label)),node('td','',fmt.format(p.hours)),node('td','',p.goalStatus==='green'?'Op schema':p.goalStatus==='orange'?'Onder dagtempo':'—'));table.append(row);}details.append(summary,table);card.append(details);list.append(card);
+   list.append(card);
   }
   this.updateDisabled(this.connected,this.locked);this.layout?.updateDisabled(this.connected,this.locked);
  }
- bars(points){const container=node('div','chart-bars'),max=Math.max(...points.map(p=>p.hours),1);for(const p of points){const row=node('div',`chart-bar-row${p.goalStatus?' day-'+p.goalStatus:''}`),track=node('div','chart-bar-track'),bar=node('div','chart-bar');bar.style.width=`${p.hours/max*100}%`;track.append(bar);if(p.goalStatus)row.setAttribute('aria-label',`${displayDate(p.label)}: ${p.goalStatus==='green'?'op schema':'onder dagtempo'}`);row.append(node('span','chart-label',displayDate(p.label)),track,node('span','chart-value',`${fmt.format(p.hours)} u`));container.append(row);}return container;}
- line(points){const wrap=node('div','chart-line-wrap'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 640 240');svg.setAttribute('role','img');svg.setAttribute('aria-label','Studie-uren per groep; exacte waarden staan onder Bekijk cijfers.');const max=Math.max(...points.map(p=>p.hours),1);const coords=points.map((p,i)=>`${40+i/Math.max(points.length-1,1)*570},${200-p.hours/max*175}`);const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',coords.join(' '));line.setAttribute('fill','none');line.setAttribute('stroke','#31584a');line.setAttribute('stroke-width','3');svg.append(line);for(let i=0;i<points.length;i++){const circle=document.createElementNS(svg.namespaceURI,'circle');const [x,y]=coords[i].split(',');circle.setAttribute('cx',x);circle.setAttribute('cy',y);circle.setAttribute('r','3');circle.setAttribute('fill',points[i].goalStatus==='orange'?'#bb6b20':points[i].goalStatus==='green'?'#397344':'#31584a');const title=document.createElementNS(svg.namespaceURI,'title');title.textContent=`${displayDate(points[i].label)}: ${fmt.format(points[i].hours)} uur`;circle.append(title);svg.append(circle);}wrap.append(node('p','goal-feedback',`Schaal: 0–${fmt.format(max)} uur`),svg,node('p','line-labels',`${displayDate(points[0].label)} → ${displayDate(points.at(-1).label)}`));return wrap;}
+ bars(points,goal){const container=node('div',goal?'chart-bars chart-bars-goal':'chart-bars'),max=Math.max(...points.map(p=>p.hours),1);for(const p of points){const row=node('div',`chart-bar-row${p.goalStatus?' day-'+p.goalStatus:''}`),track=node('div','chart-bar-track'),bar=node('div','chart-bar');bar.style.width=`${p.hours/max*100}%`;track.append(bar);const value=node('span','chart-value');value.append(duration(p.hours,{goal,short:true}));row.append(node('span','chart-label',displayDate(p.label)),track,value);if(p.goalStatus)row.append(node('span','chart-sr-only',p.goalStatus==='green'?'Op schema':'Onder dagtempo'));container.append(row);}return container;}
+ line(points,goal){const wrap=node('div','chart-line-wrap'),svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 640 240');svg.setAttribute('role','img');svg.setAttribute('aria-label',goal?'Studieminuten per groep':'Studie-uren per groep');const max=Math.max(...points.map(p=>p.hours),1);const values=node('ul','chart-sr-only');const coords=points.map((p,i)=>`${40+i/Math.max(points.length-1,1)*570},${200-p.hours/max*175}`);const line=document.createElementNS(svg.namespaceURI,'polyline');line.setAttribute('points',coords.join(' '));line.setAttribute('fill','none');line.setAttribute('stroke','#31584a');line.setAttribute('stroke-width','3');svg.append(line);for(let i=0;i<points.length;i++){const circle=document.createElementNS(svg.namespaceURI,'circle');const [x,y]=coords[i].split(',');circle.setAttribute('cx',x);circle.setAttribute('cy',y);circle.setAttribute('r','3');circle.setAttribute('fill',points[i].goalStatus==='orange'?'#bb6b20':points[i].goalStatus==='green'?'#397344':'#31584a');const point=points[i],title=document.createElementNS(svg.namespaceURI,'title');const label=`${displayDate(point.label)}: ${duration(point.hours,{goal}).textContent}${point.goalStatus?' · '+(point.goalStatus==='green'?'Op schema':'Onder dagtempo'):''}`;title.textContent=label;circle.append(title);svg.append(circle);values.append(node('li','',label));}const scale=node('p','goal-feedback','Schaal: ');scale.append(duration(max,{goal,range:'0–'}));wrap.append(scale,svg,values,node('p','line-labels',`${displayDate(points[0].label)} → ${displayDate(points.at(-1).label)}`));return wrap;}
 }
 

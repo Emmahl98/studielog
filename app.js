@@ -6,7 +6,7 @@ import {AnkiMappingUI} from './anki-mapping-ui.js?v=27';
 import {AnkiConnect,syncAnki} from './anki.js?v=27';
 import {AnkiStatsUI} from './anki-stats-ui.js?v=27';
 import {displayDate,inputDate} from './dates.js?v=14';
-import {AnalyticsUI} from './analytics-ui.js?v=35';
+import {AnalyticsUI} from './analytics-ui.js?v=36';
 import {WeightsUI} from './weights-ui.js?v=21';
 import {materialList} from './materials.js';
 import {config} from './config.js';

@@ -40,7 +40,7 @@ test('read-only API batches card history and uses loopback only',async()=>{
     const request=JSON.parse(options.body);actions.push(request);
     const batch=request.params.cards;
     const result={
-      findCards:()=>Array.from({length:251},(_,i)=>i),
+      findCards:()=>request.params.query.includes('deck:filtered')?[]:Array.from({length:251},(_,i)=>i),
       cardsInfo:()=>batch.map(cardId=>({cardId,note:Math.floor(cardId/2),deckName:'Tobira'})).reverse(),
       notesInfo:()=>request.params.notes.map(noteId=>({noteId,tags:noteId%2?[]:['H5']})).reverse(),
       getReviewsOfCards:()=>Object.fromEntries(batch.map(id=>[id,[review(16,30000,{id:+now+id})]]))
@@ -48,9 +48,9 @@ test('read-only API batches card history and uses loopback only',async()=>{
     return {ok:true,json:async()=>({error:null,result})};
   });
   const reviews=await anki.reviews();
-  assert.deepEqual(actions.map(x=>x.action),['findCards','cardsInfo','notesInfo','getReviewsOfCards','cardsInfo','notesInfo','getReviewsOfCards']);
-  assert.equal(actions[3].params.cards.length,250);assert.equal(actions[6].params.cards.length,1);
-  assert.equal(actions[2].params.notes.length,125);
+  assert.deepEqual(actions.map(x=>x.action),['findCards','findCards','cardsInfo','notesInfo','getReviewsOfCards','cardsInfo','notesInfo','getReviewsOfCards']);
+  assert.equal(actions[4].params.cards.length,250);assert.equal(actions[7].params.cards.length,1);
+  assert.equal(actions[3].params.notes.length,125);
   assert.deepEqual(reviews[0],{...review(16,30000,{id:+now}),card:'0',deck:'Tobira',tags:['H5']});
   assert.deepEqual(reviews[1].tags,['H5']);
   assert.deepEqual(reviews[2].tags,[]);
@@ -87,6 +87,7 @@ test('a tag lists every deck containing a card from its notes, including subdeck
       assert.equal(params.query,'-tag:none');
       return [1,2,3];
     }
+    if(action==='findCards'){assert.equal(params.query,'deck:filtered');return [];}
     if(action==='notesInfo')return [
       {tags:['Unit'],cards:[10,11]},
       {tags:['Unit','Unit::Extra'],cards:[12]},
@@ -125,4 +126,28 @@ test('multiple methods share a deck time equally and merge with other decks with
   assert.deepEqual(entry.weights,{A:25,B:75});
   const zero=dailyAnkiEntries([{...a,time:0},{...b,time:0}],now,{'Main':'A, B','Other':'B'})[0];
   assert.deepEqual(zero.weights,{A:25,B:75});
+});
+
+test('one filtered deck routes reviews to each original deck and exact subdeck',async()=>{
+ const anki=new AnkiConnect();
+ anki.call=async(action,params)=>{
+  if(action==='findCards')return {
+   'rated:31':[10,11,12],
+   'rated:31 deck:filtered':[10,11],
+   'rated:31 deck:filtered did:1':[10,11],
+   'rated:31 deck:filtered did:2':[10],
+   'rated:31 deck:filtered did:3':[11],
+   'rated:31 deck:filtered did:4':[]
+  }[params.query];
+  if(action==='getDecks')return {'Custom Study Session':[10,11]};
+  if(action==='deckNamesAndIds')return {'Custom Study Session':1,Main:2,'Main::Subdeck':3,Other:4};
+  if(action==='cardsInfo')return params.cards.map(cardId=>({cardId,note:20,deckName:cardId===12?'Other':'Custom Study Session'}));
+  if(action==='notesInfo')return [{noteId:20,tags:[]}];
+  assert.equal(action,'getReviewsOfCards');
+  return Object.fromEntries(params.cards.map(id=>[id,[review(16,id===11?60000:30000,{id:review(16).id+id,type:id===12?1:3})]]));
+ };
+ const reviews=await anki.reviews();
+ assert.deepEqual(reviews.map(item=>item.deck),['Main','Main::Subdeck','Other']);
+ const [entry]=dailyAnkiEntries(reviews,now,{Main:'Book','Main::Subdeck':'Chapter',Other:'Other'});
+ assert.deepEqual(entry.weights,{Book:25,Chapter:50,Other:25});
 });

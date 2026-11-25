@@ -1,7 +1,7 @@
 import {methodNames} from './method-catalog.js?v=21';
 import {methodTag} from './method-tags.js?v=21';
 import {AnkiMappingsStore} from './anki-mappings.js?v=26';
-import {methodForDeck} from './anki.js?v=27';
+import {methodForDeck} from './anki.js?v=38';
 import {materialList} from './materials.js';
 const $=id=>document.getElementById(id);
 export class AnkiMappingUI {

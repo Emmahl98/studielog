@@ -1,4 +1,4 @@
-import {recentAnkiReviews} from './anki.js?v=38';
+import {recentAnkiReviews} from './anki.js?v=39';
 import {displayDate} from './dates.js?v=14';
 
 const seconds=new Intl.NumberFormat('nl-NL',{maximumFractionDigits:3});
